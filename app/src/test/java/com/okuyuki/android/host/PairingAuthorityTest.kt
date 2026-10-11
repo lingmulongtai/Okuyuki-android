@@ -13,12 +13,24 @@ class PairingAuthorityTest {
         assertNull(pending.token)
         assertFalse(authority.authorized("Bearer ${pending.code}"))
         val peer = authority.prepareApproval(pending.requestId)!!
-        authority.completeApproval(pending.requestId, peer)
+        assertFalse(authority.completeApproval(pending.requestId, peer))
+        authority.setPeers(listOf(peer))
+        assertTrue(authority.completeApproval(pending.requestId, peer))
         val approved = authority.beginOrPoll(request.copy(requestId = pending.requestId))
         assertTrue(authority.authorized("Bearer ${approved.token}"))
         assertFalse(authority.authorized("Bearer ${approved.token}x"))
         authority.setPeers(emptyList())
         assertFalse(authority.authorized("Bearer ${approved.token}"))
+    }
+    @Test fun `stopping host removes all in-memory authority`() {
+        val authority = PairingAuthority()
+        val pending = authority.beginOrPoll(PairRequest("quest", "Quest"))
+        val peer = authority.prepareApproval(pending.requestId)!!
+        authority.setPeers(listOf(peer)); authority.completeApproval(pending.requestId, peer)
+        val token = authority.beginOrPoll(PairRequest("quest", "Quest", pending.requestId)).token!!
+        authority.clear()
+        assertFalse(authority.authorized("Bearer $token"))
+        assertTrue(authority.pending.value.isEmpty())
     }
 
     @Test fun `requests expire and cannot be claimed by another client`() {

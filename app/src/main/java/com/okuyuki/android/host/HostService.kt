@@ -18,6 +18,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.ByteArrayOutputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -29,6 +31,7 @@ data class HostState(val running: Boolean = false, val port: Int = 0, val addres
 object HostRuntime {
     val state = MutableStateFlow(HostState())
     val authority = PairingAuthority()
+    val pairingMutex = Mutex()
 }
 
 class HostService : Service() {
@@ -39,6 +42,7 @@ class HostService : Service() {
     private val events = MutableSharedFlow<Event>(extraBufferCapacity = 8)
     private var lastClientAt = System.currentTimeMillis()
     private var announced = false
+    @Volatile private var destroyed = false
 
     override fun onCreate() {
         super.onCreate()
@@ -48,8 +52,8 @@ class HostService : Service() {
         HostRuntime.state.value = HostState(running = true)
         app.library.refresh()
         scope.launch {
-            app.database.dao().observePeers().collect { peers ->
-                HostRuntime.authority.setPeers(peers.map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
+            app.database.dao().observePeers().collect {
+                HostRuntime.pairingMutex.withLock { refreshPeers() }
             }
         }
         scope.launch {
@@ -63,6 +67,7 @@ class HostService : Service() {
                 val preferences = getSharedPreferences("host", MODE_PRIVATE)
                 val deviceId = preferences.getString("deviceId", null) ?: UUID.randomUUID().toString().also { preferences.edit().putString("deviceId", it).apply() }
                 val source = androidSource()
+                HostRuntime.pairingMutex.withLock { refreshPeers() }
                 val engine = embeddedServer(CIO, host = "0.0.0.0", port = 0) {
                     photoApi(source, HostRuntime.authority,
                         { Hello(deviceId, android.os.Build.MODEL, BuildConfig.VERSION_NAME, source.photos().size) }, events,
@@ -114,9 +119,11 @@ class HostService : Service() {
     private fun advertise(port: Int) {
         val nsd = getSystemService(NsdManager::class.java)
         val listener = object : NsdManager.RegistrationListener {
-            override fun onServiceRegistered(info: NsdServiceInfo) { announced = true }
+            override fun onServiceRegistered(info: NsdServiceInfo) {
+                if (destroyed) runCatching { nsd.unregisterService(this) } else announced = true
+            }
             override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                HostRuntime.state.update { it.copy(error = "自動検出を開始できませんでした。Questで表示されたアドレスを入力してください") }
+                if (!destroyed) HostRuntime.state.update { it.copy(error = "自動検出を開始できませんでした。Questで表示されたアドレスを入力してください") }
             }
             override fun onServiceUnregistered(info: NsdServiceInfo) { announced = false }
             override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
@@ -137,12 +144,16 @@ class HostService : Service() {
     }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
+        destroyed = true
         scope.cancel()
         if (announced) registration?.let { runCatching { getSystemService(NsdManager::class.java).unregisterService(it) } }
         server?.stop(0, 300)
         HostRuntime.authority.clear()
         HostRuntime.state.update { HostState(error = it.error) }
         super.onDestroy()
+    }
+    private suspend fun refreshPeers() {
+        HostRuntime.authority.setPeers(app.database.dao().peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
     }
     private fun addresses(): List<String> = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
         .flatMap { it.inetAddresses.toList() }.filterIsInstance<Inet4Address>().filter { it.isSiteLocalAddress }.map { it.hostAddress ?: "" }

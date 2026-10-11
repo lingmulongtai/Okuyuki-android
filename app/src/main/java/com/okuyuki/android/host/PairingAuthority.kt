@@ -44,13 +44,16 @@ class PairingAuthority(private val clock: () -> Long = System::currentTimeMillis
         return requests[id]?.takeIf { it.state == "pending" }?.let { ApprovedPeer(it.peer.clientId, it.peer.name, hash(it.token)) }
     }
 
-    @Synchronized fun completeApproval(id: String, peer: ApprovedPeer) {
+    @Synchronized fun completeApproval(id: String, peer: ApprovedPeer): Boolean {
         expire()
-        requests[id]?.takeIf { it.peer.clientId == peer.clientId && it.state == "pending" }?.let {
-            hashes = hashes + peer.tokenHash
-            it.state = "approved"
+        val request = requests[id]?.takeIf { it.peer.clientId == peer.clientId && it.state == "pending" && peer.tokenHash == hash(it.token) }
+        if (request != null && peer.tokenHash in hashes) {
+            request.state = "approved"
+            publish()
+            return true
         }
         publish()
+        return false
     }
 
     @Synchronized fun reject(id: String) { requests[id]?.state = "rejected"; publish() }
@@ -61,7 +64,7 @@ class PairingAuthority(private val clock: () -> Long = System::currentTimeMillis
         return hashes.any { MessageDigest.isEqual(it.toByteArray(), candidate) }
     }
 
-    @Synchronized fun clear() { requests.clear(); publish() }
+    @Synchronized fun clear() { requests.clear(); hashes = emptyList(); publish() }
     private fun expire() { requests.entries.removeAll { clock() - it.value.createdAt >= 120_000 }; publish() }
     private fun publish() { _pending.value = requests.values.filter { it.state == "pending" }.map { it.peer } }
     private fun hash(token: String) = MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") { "%02x".format(it) }

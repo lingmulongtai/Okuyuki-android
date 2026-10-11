@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.host.*
 import com.okuyuki.android.library.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,9 +58,17 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             Text("Questに同じ番号が表示されていることを確認してください。")
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Button(onClick = { scope.launch {
-                                    HostRuntime.authority.prepareApproval(request.requestId)?.let { peer ->
-                                        app.database.dao().savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash))
-                                        HostRuntime.authority.completeApproval(request.requestId, peer)
+                                    HostRuntime.pairingMutex.withLock {
+                                        HostRuntime.authority.prepareApproval(request.requestId)?.let { peer ->
+                                            val dao = app.database.dao()
+                                            val previous = dao.peers().firstOrNull { it.clientId == peer.clientId }
+                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash))
+                                            refreshAuthority(dao)
+                                            if (!HostRuntime.authority.completeApproval(request.requestId, peer)) {
+                                                if (previous == null) dao.deletePeer(peer.clientId) else dao.savePeer(previous)
+                                                refreshAuthority(dao)
+                                            }
+                                        }
                                     }
                                 } }) { Text("許可") }
                                 TextButton(onClick = { HostRuntime.authority.reject(request.requestId) }) { Text("拒否") }
@@ -114,7 +123,9 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                         if (peers.isEmpty()) Text("まだ接続したQuestはありません")
                         peers.forEach { peer -> Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(peer.name, Modifier.weight(1f))
-                            TextButton(onClick = { scope.launch { app.database.dao().deletePeer(peer.clientId) } }) { Text("解除") }
+                            TextButton(onClick = { scope.launch { HostRuntime.pairingMutex.withLock {
+                                app.database.dao().deletePeer(peer.clientId); refreshAuthority(app.database.dao())
+                            } } }) { Text("解除") }
                         } }
                         OutlinedButton(onClick = requestPhotos) { Text("写真へのアクセスを変更") }
                         Text("アルファ版 · 実機での検証は未完了です。信頼できる自宅のWi-Fiまたはスマホのテザリングで使用してください。")
@@ -141,3 +152,6 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
 }
 
 private fun date(time: Long) = SimpleDateFormat("M月d日（E）", Locale.JAPANESE).format(Date(time))
+private suspend fun refreshAuthority(dao: LibraryDao) {
+    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
+}
