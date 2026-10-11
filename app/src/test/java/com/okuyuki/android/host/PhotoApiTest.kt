@@ -4,7 +4,9 @@ import com.okuyuki.protocol.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.http.content.OutgoingContent
 import io.ktor.server.testing.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -12,6 +14,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PhotoApiTest {
+    @Test fun `pairing rejects oversized streamed bodies without a declared length`() = testApplication {
+        val source = object : HostPhotoSource {
+            override suspend fun photos() = emptyList<Photo>()
+            override suspend fun thumbnail(id: String) = null
+            override suspend fun original(id: String): Original? = null
+        }
+        val authority = PairingAuthority()
+        application { photoApi(source, authority, { Hello("phone", "Galaxy", "alpha", 0) }, MutableSharedFlow()) }
+        val response = client.post("/v1/pair") {
+            setBody(object : OutgoingContent.WriteChannelContent() {
+                override val contentType = ContentType.Application.Json
+                override suspend fun writeTo(channel: ByteWriteChannel) { channel.writeFully(ByteArray(4097) { 32 }) }
+            })
+        }
+        assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
+        assertTrue(authority.pending.value.isEmpty())
+    }
+
     @Test fun `approval gates library and byte ranges preserve exact originals`() = testApplication {
         val authority = PairingAuthority()
         val bytes = ByteArray(100) { it.toByte() }
@@ -29,6 +49,7 @@ class PhotoApiTest {
         }.bodyAsText())
         assertNull(pending.token)
         val peer = authority.prepareApproval(pending.requestId)!!
+        authority.setPeers(listOf(peer))
         authority.completeApproval(pending.requestId, peer)
         val token = authority.beginOrPoll(pair.copy(requestId = pending.requestId)).token!!
         val page = Protocol.json.decodeFromString<LibraryPage>(client.get("/v1/library") { bearerAuth(token) }.bodyAsText())

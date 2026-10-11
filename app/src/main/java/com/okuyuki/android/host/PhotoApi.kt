@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import java.io.InputStream
+import java.io.ByteArrayOutputStream
+import io.ktor.utils.io.*
 
 data class Original(val size: Long, val open: () -> InputStream)
 interface HostPhotoSource {
@@ -45,7 +47,18 @@ fun Application.photoApi(
             if ((call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 0) > 4096) {
                 call.respond(HttpStatusCode.PayloadTooLarge); return@post
             }
-            try { call.respond(authority.beginOrPoll(call.receive<PairRequest>())) }
+            try {
+                val input = call.receiveChannel()
+                val bytes = ByteArrayOutputStream()
+                val buffer = ByteArray(1024)
+                while (true) {
+                    val count = input.readAvailable(buffer)
+                    if (count < 0) break
+                    if (bytes.size() + count > 4096) { call.respond(HttpStatusCode.PayloadTooLarge); return@post }
+                    bytes.write(buffer, 0, count)
+                }
+                call.respond(authority.beginOrPoll(Protocol.json.decodeFromString<PairRequest>(bytes.toString("UTF-8"))))
+            }
             catch (_: Exception) { call.respond(HttpStatusCode.BadRequest, ApiError("接続要求を確認できませんでした")) }
         }
         get("/v1/library") {
