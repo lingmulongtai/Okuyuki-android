@@ -10,7 +10,7 @@
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
 <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
 
-<application android:label="Okuyuki" android:icon="@drawable/ic_launcher"
+<application android:name=".OkuyukiApplication" android:label="Okuyuki" android:icon="@drawable/ic_launcher"
     android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="true" android:theme="@android:style/Theme.Material.NoActionBar">
     <activity android:name=".MainActivity" android:exported="true">
         <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
