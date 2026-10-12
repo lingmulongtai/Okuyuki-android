@@ -40,7 +40,7 @@ suspend fun ApplicationCall.respondPreflight() {
 /** Reads a small request body as text whatever its content type, or answers 413 and returns null. */
 suspend fun ApplicationCall.receiveSmallText(limit: Int = 4096): String? {
     if ((request.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 0) > limit) {
-        respond(HttpStatusCode.PayloadTooLarge, ApiError("要求が大きすぎます")); return null
+        respond(HttpStatusCode.PayloadTooLarge, ApiError("要求が大きすぎます。")); return null
     }
     val input = receiveChannel()
     val bytes = ByteArrayOutputStream()
@@ -48,7 +48,7 @@ suspend fun ApplicationCall.receiveSmallText(limit: Int = 4096): String? {
     while (true) {
         val count = input.readAvailable(buffer)
         if (count < 0) break
-        if (bytes.size() + count > limit) { respond(HttpStatusCode.PayloadTooLarge, ApiError("要求が大きすぎます")); return null }
+        if (bytes.size() + count > limit) { respond(HttpStatusCode.PayloadTooLarge, ApiError("要求が大きすぎます。")); return null }
         bytes.write(buffer, 0, count)
     }
     return bytes.toString("UTF-8")

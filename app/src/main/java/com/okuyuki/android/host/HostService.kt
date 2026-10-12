@@ -106,7 +106,7 @@ class HostService : Service() {
                     if (System.currentTimeMillis() - lastClientAt > 10 * 60_000) { stopSelf(); break }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { HostRuntime.state.value = HostState(error = "接続を開始できませんでした。Wi-Fiを確認してください"); stopSelf() }
+            catch (_: Exception) { HostRuntime.state.value = HostState(error = "接続の待ち受けを始められませんでした。Wi-Fi につながっているか確かめて、もう一度オンにしてください。"); stopSelf() }
         }
     }
 
@@ -141,7 +141,7 @@ class HostService : Service() {
                 if (destroyed) runCatching { nsd.unregisterService(this) } else announced = true
             }
             override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                if (!destroyed) HostRuntime.state.update { it.copy(error = "自動検出を開始できませんでした。Questで表示されたアドレスを入力してください") }
+                if (!destroyed) HostRuntime.state.update { it.copy(error = "Quest やテレビから、このスマホを自動で見つけられません。下のアドレスを Quest やテレビで入力してください。") }
             }
             override fun onServiceUnregistered(info: NsdServiceInfo) { announced = false }
             override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit

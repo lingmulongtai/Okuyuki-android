@@ -32,7 +32,8 @@ fun ConnectScreen(app: OkuyukiApplication, host: HostState, requestPhotos: () ->
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         HostCard(host, allowed, requestPhotos, toggleHost)
         val error = host.error
-        if (error != null && !host.running) Notice(error, tone = Tone.ERROR)
+        // Shown while waiting too: without discovery the phone still works, through the address below.
+        if (error != null) Notice(error, tone = Tone.ERROR)
         TvPanel(app.tvRemote, host)
         QuestPanel(host)
         if (host.running && host.addresses.isNotEmpty()) AddressPanel(host.addresses)
