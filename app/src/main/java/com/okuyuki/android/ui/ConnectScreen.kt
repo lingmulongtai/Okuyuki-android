@@ -2,12 +2,11 @@ package com.okuyuki.android.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.OkuyukiApplication
 import com.okuyuki.android.host.HostState
@@ -28,8 +28,7 @@ import com.okuyuki.android.tv.TvRemote
 @Composable
 fun ConnectScreen(app: OkuyukiApplication, host: HostState, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
     val allowed = app.library.hasPermission()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Page(12.dp, Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 24.dp)) {
         HostCard(host, allowed, requestPhotos, toggleHost)
         val error = host.error
         // Shown while waiting too: without discovery the phone still works, through the address below.
@@ -88,6 +87,7 @@ private fun HostCard(host: HostState, allowed: Boolean, requestPhotos: () -> Uni
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TvPanel(remote: TvRemote, host: HostState) {
     val tvs by remote.tvs.collectAsStateWithLifecycle()
@@ -100,8 +100,9 @@ private fun TvPanel(remote: TvRemote, host: HostState) {
     // Looks for TVs once the phone is ready, so the list is filled when the person gets here.
     LaunchedEffect(ready) { if (ready && remote.tvs.value.isEmpty()) remote.search() }
     Panel {
-        Row(Modifier.padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("テレビで見る", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        // The search button moves under the title when large text leaves no room beside it.
+        FlowRow(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("テレビで見る", Modifier.align(Alignment.CenterVertically), style = MaterialTheme.typography.titleMedium)
             TextButton(onClick = remote::search, enabled = !searching) {
                 if (searching) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Icon(Glyphs.Search, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -163,7 +164,11 @@ private fun AddressPanel(addresses: List<String>) {
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         SelectionContainer {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                addresses.forEach { Text(it, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace) }
+                // One line at any text size, so the address reads as one thing to type.
+                addresses.forEach {
+                    Text(it, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace, maxLines = 1,
+                        autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = MaterialTheme.typography.titleLarge.fontSize))
+                }
             }
         }
     }

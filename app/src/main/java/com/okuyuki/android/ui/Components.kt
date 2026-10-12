@@ -3,22 +3,41 @@ package com.okuyuki.android.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
+
+/** The app window's size, for layouts that change when the phone is held sideways. */
+@Composable
+fun windowSize(): DpSize = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.toSize().toDpSize() }
+
+/** A scrolling screen whose content keeps a readable width when the window is wide, as on a phone held sideways. */
+@Composable
+fun Page(spacing: Dp, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing), content = content)
+    }
+}
 
 /** A white card on the page; the building block of the connect and settings screens. */
 @Composable
@@ -113,7 +132,17 @@ fun MediaBadge(text: String, modifier: Modifier = Modifier, glyph: ImageVector? 
     Row(modifier.background(container, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (glyph != null) { Icon(glyph, contentDescription = null, modifier = Modifier.size(11.dp), tint = content); Spacer(Modifier.width(3.dp)) }
-        Text(text, style = MaterialTheme.typography.labelSmall, color = content)
+        Text(text, style = MaterialTheme.typography.labelSmall.atMost(1.3f), color = content)
+    }
+}
+
+/** Text on a thumbnail can't outgrow the thumbnail, so it follows the text size setting only up to [scale] times. */
+@Composable
+private fun TextStyle.atMost(scale: Float): TextStyle {
+    val density = LocalDensity.current
+    if (density.fontScale <= scale || !fontSize.isSp) return this
+    return with(density) {
+        copy(fontSize = (fontSize.value * scale).dp.toSp(), lineHeight = if (lineHeight.isSp) (lineHeight.value * scale).dp.toSp() else lineHeight)
     }
 }
 

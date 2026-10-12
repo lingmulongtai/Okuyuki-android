@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.host.*
@@ -82,8 +83,10 @@ private fun Header(tab: Tab, host: HostState, openConnect: () -> Unit) {
     Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (tab == Tab.LIBRARY) { BrandMark(26.dp); Spacer(Modifier.width(10.dp)) }
-        Text(tab.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-        StatusPill(host, openConnect)
+        // The title keeps its line; with very large text the status gives way and ends in "…".
+        Text(tab.title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, softWrap = false)
+        Spacer(Modifier.width(12.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { StatusPill(host, openConnect) }
     }
 }
 
@@ -106,7 +109,8 @@ private fun StatusPill(host: HostState, onClick: () -> Unit) {
                 .animateFloat(1f, 0.35f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "dot").value else 1f
             Box(Modifier.size(8.dp).alpha(pulse).background(dot, CircleShape))
             Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = if (host.running) colors.onSurface else colors.onSurfaceVariant)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = if (host.running) colors.onSurface else colors.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

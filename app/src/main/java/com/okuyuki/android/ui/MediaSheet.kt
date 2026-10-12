@@ -27,13 +27,15 @@ fun MediaSheet(app: OkuyukiApplication, media: IndexedMedia, host: HostState, di
     val scope = rememberCoroutineScope()
     val item = media.item()
     val showing = host.viewingId == media.id.toString() && host.clients + host.tvClients > 0
+    // At most about half the window, so the details and the button show without scrolling on a phone held sideways.
+    val preview = windowSize().height.let { if (it > 0.dp) minOf(400.dp, it * 0.45f) else 400.dp }
     fun close(then: () -> Unit = {}) { scope.launch { sheet.hide() }.invokeOnCompletion { dismiss(); then() } }
     ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheet, containerColor = LocalExtras.current.panel,
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
             val ratio = (item.width.toFloat() / item.height.coerceAtLeast(1)).coerceIn(0.5f, 2.4f)
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Box(Modifier.heightIn(max = 400.dp).aspectRatio(ratio).clip(MaterialTheme.shapes.medium)) {
+                Box(Modifier.heightIn(max = preview).aspectRatio(ratio).clip(MaterialTheme.shapes.medium)) {
                     Thumbnail(app, media, Modifier.fillMaxSize(), placeholder = 40.dp, sizePx = 1440)
                     if (media.isVideo) MediaBadge(durationLabel(media.durationMs), Modifier.align(Alignment.BottomEnd).padding(10.dp), glyph = Glyphs.Play)
                     if (showing) MediaBadge("表示中", Modifier.align(Alignment.BottomStart).padding(10.dp),
@@ -42,7 +44,7 @@ fun MediaSheet(app: OkuyukiApplication, media: IndexedMedia, host: HostState, di
             }
             Spacer(Modifier.height(18.dp))
             Text(media.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("${dateTimeLabel(media.takenAt)} · ${item.width} × ${item.height}", style = MaterialTheme.typography.bodyMedium,
+            Text("${dateTimeLabel(media.takenAt)} · ${item.width}\u00A0×\u00A0${item.height}", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

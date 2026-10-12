@@ -3,8 +3,6 @@ package com.okuyuki.android.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,8 +34,7 @@ fun SettingsScreen(app: OkuyukiApplication, requestPhotos: () -> Unit, openAppSe
     val allowed = app.library.hasPermission()
     var licenses by rememberSaveable { mutableStateOf(false) }
     if (licenses) LicensesDialog(app) { licenses = false }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Page(8.dp, Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
         SectionTitle("つないだ機器")
         Panel {
             if (peers.isEmpty()) Quiet("まだありません。Quest やテレビからの接続を許可すると、ここに並びます。")
