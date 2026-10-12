@@ -121,13 +121,13 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     }
                     1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text("Quest・テレビとつなぐ", style = MaterialTheme.typography.titleLarge); Text("同じWi-FiのQuestやテレビを待ちます") }
+                            Column(Modifier.weight(1f)) { Text("Quest・テレビとつなぐ", style = MaterialTheme.typography.titleLarge); Text("同じWi-Fiの機器を待ちます") }
                             Switch(checked = host.running, onCheckedChange = toggleHost, enabled = app.library.hasPermission())
                         }
                         if (!app.library.hasPermission()) Button(onClick = requestPhotos) { Text("先に写真へのアクセスを許可") }
                         Text(when {
                             host.clients > 0 && host.tvClients > 0 -> "Quest とテレビが接続中"
-                            host.tvClients > 0 -> "テレビ接続中 · 写真はテレビのリモコンで選べます"
+                            host.tvClients > 0 -> "テレビ接続中 · 写真はリモコンで選べます"
                             host.clients > 0 -> "Quest 接続中 · 写真をQuestで選んでください"
                             host.running -> "QuestやテレビでOkuyukiを開き、このスマホを選んでください"
                             else -> "オンにするとQuestやテレビから写真を見られます。"
