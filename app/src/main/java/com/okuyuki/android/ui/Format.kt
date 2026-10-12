@@ -27,15 +27,18 @@ fun dateTimeLabel(time: Long, zone: ZoneId = ZoneId.systemDefault()): String {
 
 fun durationLabel(ms: Long?): String {
     val seconds = ((ms ?: 0) / 1000).toInt()
-    return if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
-    else "%d:%02d".format(seconds / 60, seconds % 60)
+    return if (seconds >= 3600) "%d:%02d:%02d".format(Locale.ROOT, seconds / 3600, seconds / 60 % 60, seconds % 60)
+    else "%d:%02d".format(Locale.ROOT, seconds / 60, seconds % 60)
 }
 
 fun sizeLabel(bytes: Long): String = when {
-    bytes >= 1L shl 30 -> "%.1f GB".format(bytes / (1L shl 30).toDouble())
-    bytes >= 1L shl 20 -> "%.0f MB".format(bytes / (1L shl 20).toDouble())
-    else -> "%.0f KB".format(bytes.coerceAtLeast(1024) / 1024.0)
+    bytes >= 1L shl 30 -> "%.1f GB".format(Locale.ROOT, bytes / (1L shl 30).toDouble())
+    bytes >= 1L shl 20 -> "%.0f MB".format(Locale.ROOT, bytes / (1L shl 20).toDouble())
+    else -> "%.0f KB".format(Locale.ROOT, bytes.coerceAtLeast(1024) / 1024.0)
 }
+
+/** [name] then Japanese [rest], with the space Japanese text keeps after a Latin name such as Quest or SM-S938Q. */
+fun named(name: String, rest: String): String = if ((name.lastOrNull()?.code ?: 0x3000) < 0x2E80) "$name $rest" else "$name$rest"
 
 /** 8K, 4K, 1080p or 720p for videos; megapixels for photos. */
 fun resolutionLabel(media: IndexedMedia): String {

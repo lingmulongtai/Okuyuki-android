@@ -21,7 +21,10 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,20 +81,35 @@ private val DarkColors = darkColorScheme(
     surfaceContainer = Color(0xFF161A22), surfaceContainerHigh = Color(0xFF1D212B),
     surfaceContainerHighest = Color(0xFF252A36),
     outline = Color(0xFF737A8C), outlineVariant = Color(0xFF2D3240),
+    // A muted red: a problem should stand out from the page without glaring at night.
+    error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
+    errorContainer = Color(0xFF3A1F24), onErrorContainer = Color(0xFFFFDAD6),
     inverseSurface = Color(0xFFE8EAF1), inverseOnSurface = Color(0xFF1A1D26), inversePrimary = Brand.Blue,
 )
 
+// The text is Japanese whatever the phone's language: Japanese glyph forms, and lines that break between phrases
+// rather than inside a word.
 private val base = Typography()
+private val japanese = LocaleList("ja-JP")
+private val paragraph = LineBreak(LineBreak.Strategy.HighQuality, LineBreak.Strictness.Strict, LineBreak.WordBreak.Phrase)
+private val heading = LineBreak(LineBreak.Strategy.Balanced, LineBreak.Strictness.Strict, LineBreak.WordBreak.Phrase)
+private fun TextStyle.japanese(lines: LineBreak = paragraph) = copy(localeList = japanese, lineBreak = lines)
 private val OkuyukiType = Typography(
-    headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp),
-    headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold),
-    titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp),
-    titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-    titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-    bodyLarge = base.bodyLarge.copy(lineHeight = 26.sp),
-    bodyMedium = base.bodyMedium.copy(lineHeight = 22.sp),
-    labelLarge = base.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-    labelMedium = base.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+    displayLarge = base.displayLarge.japanese(heading),
+    displayMedium = base.displayMedium.japanese(heading),
+    displaySmall = base.displaySmall.japanese(heading),
+    headlineLarge = base.headlineLarge.japanese(heading),
+    headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp).japanese(heading),
+    headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold).japanese(heading),
+    titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp).japanese(heading),
+    titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold).japanese(),
+    titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold).japanese(),
+    bodyLarge = base.bodyLarge.copy(lineHeight = 26.sp).japanese(),
+    bodyMedium = base.bodyMedium.copy(lineHeight = 22.sp).japanese(),
+    bodySmall = base.bodySmall.japanese(),
+    labelLarge = base.labelLarge.copy(fontWeight = FontWeight.SemiBold).japanese(),
+    labelMedium = base.labelMedium.copy(fontWeight = FontWeight.SemiBold).japanese(),
+    labelSmall = base.labelSmall.japanese(),
 )
 
 private val OkuyukiShapes = Shapes(

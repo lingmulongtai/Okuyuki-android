@@ -51,15 +51,15 @@ enum class Tone { INFO, ERROR }
 fun Notice(text: String, modifier: Modifier = Modifier, tone: Tone = Tone.INFO, busy: Boolean = false, action: String? = null,
     onAction: () -> Unit = {}) {
     val colors = MaterialTheme.colorScheme
-    val (container, content) = when (tone) {
-        Tone.INFO -> colors.secondaryContainer to colors.onSecondaryContainer
-        Tone.ERROR -> colors.errorContainer to colors.onErrorContainer
+    val (container, content, accent) = when (tone) {
+        Tone.INFO -> Triple(colors.secondaryContainer, colors.onSecondaryContainer, colors.primary)
+        Tone.ERROR -> Triple(colors.errorContainer, colors.onErrorContainer, colors.error)
     }
     Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = container, contentColor = content) {
         Row(Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp).heightIn(min = 36.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = content, strokeWidth = 2.dp)
-            else Icon(Glyphs.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+            if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = accent, strokeWidth = 2.dp)
+            else Icon(Glyphs.Info, contentDescription = null, modifier = Modifier.size(18.dp), tint = accent)
             Spacer(Modifier.width(10.dp))
             Text(text, Modifier.weight(1f).padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
             if (action != null) TextButton(onClick = onAction, colors = ButtonDefaults.textButtonColors(contentColor = content)) { Text(action) }

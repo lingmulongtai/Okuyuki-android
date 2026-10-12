@@ -34,7 +34,7 @@ fun PairingDialog(request: PendingPeer, others: Int, approve: () -> Unit, reject
                 GlyphBubble(if (tv) Glyphs.Tv else Glyphs.Headset, size = 56.dp, container = MaterialTheme.colorScheme.primaryContainer,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 Spacer(Modifier.height(16.dp))
-                Text("${device}がつなごうとしています", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                Text(named(device, "がつなごうとしています"), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(4.dp))
                 Text(request.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -49,7 +49,7 @@ fun PairingDialog(request: PendingPeer, others: Int, approve: () -> Unit, reject
                     }
                 }
                 Spacer(Modifier.height(20.dp))
-                Text("${device}に同じ番号が出ていれば許可してください。違う番号なら拒否してください。", style = MaterialTheme.typography.bodyMedium,
+                Text(named(device, "に同じ番号が出ていれば許可してください。違う番号なら拒否してください。"), style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center)
                 Spacer(Modifier.height(24.dp))
                 Button(onClick = approve, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("許可する") }
