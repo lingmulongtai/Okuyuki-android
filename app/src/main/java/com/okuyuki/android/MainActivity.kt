@@ -2,7 +2,9 @@ package com.okuyuki.android
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
@@ -21,6 +23,8 @@ class MainActivity : ComponentActivity() {
         }, toggleHost = { enabled ->
             if (enabled) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             else stopService(Intent(this, com.okuyuki.android.host.HostService::class.java))
+        }, openAppSettings = {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
         }) }
     }
     override fun onResume() { super.onResume(); app.library.refresh() }
