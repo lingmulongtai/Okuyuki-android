@@ -106,7 +106,7 @@ class HostService : Service() {
                     if (System.currentTimeMillis() - lastClientAt > 10 * 60_000) { stopSelf(); break }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { HostRuntime.state.value = HostState(error = "接続を開始できませんでした。Wi-Fiを確認してください"); stopSelf() }
+            catch (_: Exception) { HostRuntime.state.value = HostState(error = "接続の待ち受けを始められませんでした。Wi-Fi につながっているか確かめて、もう一度オンにしてください。"); stopSelf() }
         }
     }
 
@@ -141,7 +141,7 @@ class HostService : Service() {
                 if (destroyed) runCatching { nsd.unregisterService(this) } else announced = true
             }
             override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                if (!destroyed) HostRuntime.state.update { it.copy(error = "自動検出を開始できませんでした。Questで表示されたアドレスを入力してください") }
+                if (!destroyed) HostRuntime.state.update { it.copy(error = "Quest やテレビから、このスマホを自動で見つけられません。下のアドレスを Quest やテレビで入力してください。") }
             }
             override fun onServiceUnregistered(info: NsdServiceInfo) { announced = false }
             override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
@@ -153,7 +153,7 @@ class HostService : Service() {
     private fun notification(message: String): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, HostService::class.java).setAction("stop"), PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(this, "host").setSmallIcon(R.drawable.ic_launcher).setContentTitle("Okuyuki")
+        return NotificationCompat.Builder(this, "host").setSmallIcon(R.drawable.ic_notification).setColor(0xFF2747E6.toInt()).setContentTitle("Okuyuki")
             .setContentText(message).setContentIntent(open).setOngoing(true).addAction(0, "接続をオフ", stop).build()
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

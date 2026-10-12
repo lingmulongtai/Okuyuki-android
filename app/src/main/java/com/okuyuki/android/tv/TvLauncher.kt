@@ -202,7 +202,7 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { error }
             if (failure != null) {
-                if (trust.mismatch) throw LaunchException("テレビの証明書が前回と違います。設定でこのテレビの登録を解除してから、もう一度試してください", failure)
+                if (trust.mismatch) throw LaunchException("テレビの証明書が前回と違います。設定でこのテレビの登録を解除してから、もう一度試してください。", failure)
                 throw Unreachable(failure)
             }
             socket.send(Ssap.register(credentials.clientKey(tv.id)))
@@ -217,10 +217,10 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
                             trust.seen?.let { credentials.savePin(tv.id, it) }
                             break
                         }
-                        "error" -> throw LaunchException("テレビで許可されませんでした。もう一度試して、テレビの画面で「許可」を選んでください")
+                        "error" -> throw LaunchException("テレビで許可されませんでした。もう一度試して、テレビの画面で「許可」を選んでください。")
                     }
                 }
-            } ?: throw LaunchException("テレビで許可されませんでした。もう一度試して、テレビの画面で「許可」を選んでください")
+            } ?: throw LaunchException("テレビで許可されませんでした。もう一度試して、テレビの画面で「許可」を選んでください。")
             socket.send(Ssap.launch(params))
             withTimeoutOrNull(15_000) {
                 while (true) {
@@ -229,14 +229,14 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
                     if (reply.type == "response" && reply.succeeded) break
                     val problem = reply.problem
                     throw LaunchException(when {
-                        reply.missingApp -> "テレビに Okuyuki TV が入っていないようです。先にテレビにインストールしてください"
-                        problem.isNullOrBlank() -> "テレビで Okuyuki TV を開けませんでした"
-                        else -> "テレビで Okuyuki TV を開けませんでした（$problem）"
+                        reply.missingApp -> "テレビに Okuyuki TV が入っていないようです。先にテレビにインストールしてください。"
+                        problem.isNullOrBlank() -> "テレビで Okuyuki TV を開けませんでした。"
+                        else -> "テレビで Okuyuki TV を開けませんでした（$problem）。"
                     })
                 }
-            } ?: throw LaunchException("テレビから返事がありませんでした。もう一度試してください")
+            } ?: throw LaunchException("テレビから返事がありませんでした。もう一度試してください。")
         } catch (closed: ClosedReceiveChannelException) {
-            throw LaunchException("テレビとの接続が切れました。もう一度試してください", closed)
+            throw LaunchException("テレビとの接続が切れました。もう一度試してください。", closed)
         } finally {
             socket.close(1000, null)
             client.dispatcher.executorService.shutdown()
@@ -245,7 +245,7 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
     }
 
     private companion object {
-        const val UNREACHABLE = "テレビに接続できませんでした。テレビの電源が入っていて、同じ Wi-Fi にあるか確認してください"
+        const val UNREACHABLE = "テレビに接続できませんでした。テレビの電源が入っていて、同じ Wi-Fi にあるか確認してください。"
     }
 
     /**

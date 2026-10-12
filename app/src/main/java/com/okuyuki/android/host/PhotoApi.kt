@@ -38,7 +38,7 @@ fun Application.photoApi(
     val active = java.util.concurrent.atomic.AtomicInteger(0)
     suspend fun permitted(call: ApplicationCall): Boolean {
         if (authority.authorized(call.request.headers[HttpHeaders.Authorization])) return true
-        call.respond(HttpStatusCode.Unauthorized, ApiError("スマホ側で接続を許可してください"))
+        call.respond(HttpStatusCode.Unauthorized, ApiError("スマホで接続を許可してください。"))
         return false
     }
     routing {
@@ -49,14 +49,14 @@ fun Application.photoApi(
                 val text = call.receiveSmallText() ?: return@post
                 call.respond(authority.beginOrPoll(Protocol.json.decodeFromString<PairRequest>(text)))
             }
-            catch (_: Exception) { call.respond(HttpStatusCode.BadRequest, ApiError("接続要求を確認できませんでした")) }
+            catch (_: Exception) { call.respond(HttpStatusCode.BadRequest, ApiError("接続要求を確認できませんでした。")) }
         }
         get("/v1/library") {
             if (!permitted(call)) return@get
             val photos = source.photos()
             val after = call.request.queryParameters["after"]
             val offset = if (after == null) 0 else photos.indexOfFirst { it.id == after }.let { index ->
-                if (index < 0) { call.respond(HttpStatusCode.BadRequest, ApiError("一覧が変わりました。更新してください")); return@get }
+                if (index < 0) { call.respond(HttpStatusCode.BadRequest, ApiError("一覧が変わりました。更新してください。")); return@get }
                 index + 1
             }
             val page = photos.drop(offset).take(Protocol.PAGE_SIZE)

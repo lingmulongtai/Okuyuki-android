@@ -34,9 +34,9 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
                 val found = launcher.discover()
                 found.forEach(credentials::remember)
                 _tvs.value = credentials.known()
-                if (found.isEmpty()) _message.value = "テレビが見つかりませんでした。テレビの電源を入れ、スマホと同じ Wi-Fi につないでください"
+                if (found.isEmpty()) _message.value = "テレビが見つかりませんでした。テレビの電源を入れ、スマホと同じ Wi-Fi につないでください。"
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { _message.value = "テレビを探せませんでした。Wi-Fi を確認してください" }
+            catch (_: Exception) { _message.value = "テレビを探せませんでした。Wi-Fi を確認してください。" }
             finally { _searching.value = false }
         }
     }
@@ -47,7 +47,7 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
         val host = HostRuntime.state.value
         val phone = phoneAddress(host.addresses, tv.address)
         if (!host.running || host.port == 0 || phone == null) {
-            _message.value = "先に「Quest・テレビとつなぐ」をオンにしてください"
+            _message.value = "先に「接続を待つ」をオンにしてください。"
             return
         }
         _busy.value = true
@@ -55,13 +55,13 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
         scope.launch {
             try {
                 val params = buildJsonObject { put("host", phone); put("port", host.port); put("deviceId", host.deviceId) }
-                launcher.launch(tv, params) { _message.value = "テレビの画面で「許可」を選んでください" }
+                launcher.launch(tv, params) { _message.value = "テレビの画面で「許可」を選んでください。" }
                 credentials.remember(tv)
                 _tvs.value = credentials.known()
-                _message.value = "${tv.name} で Okuyuki TV を開きました"
+                _message.value = "${tv.name} で Okuyuki TV を開きました。"
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: LaunchException) { _message.value = error.message }
-            catch (_: Exception) { _message.value = "テレビに接続できませんでした。テレビの電源と Wi-Fi を確認してください" }
+            catch (_: Exception) { _message.value = "テレビに接続できませんでした。テレビの電源と Wi-Fi を確認してください。" }
             finally { _busy.value = false }
         }
     }
@@ -70,7 +70,7 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
     fun openAddress(text: String) {
         val address = text.trim()
         if (!IPV4.matches(address) || address.split('.').any { it.toInt() > 255 }) {
-            _message.value = "テレビの IP アドレスを「192.168.1.20」の形で入力してください"
+            _message.value = "テレビの IP アドレスを「192.168.1.20」の形で入力してください。"
             return
         }
         open(_tvs.value.firstOrNull { it.address == address } ?: FoundTv("ip:$address", "LG テレビ（$address）", address))

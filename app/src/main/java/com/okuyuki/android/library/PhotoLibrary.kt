@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.FileInputStream
@@ -25,8 +26,9 @@ import java.io.FileInputStream
 class PhotoLibrary(private val context: Context, val dao: LibraryDao, private val scope: CoroutineScope) {
     private val scanning = Mutex()
     private var rescan: Job? = null
-    private val _status = MutableStateFlow("写真へのアクセスを許可してください")
-    val status = _status.asStateFlow()
+    private val _state = MutableStateFlow(ScanState())
+    /** Whether photos may be read, and how the last scan went. */
+    val state = _state.asStateFlow()
     /** 3D photos, for Quest and the phone's own grid. */
     val photos = dao.observePhotos()
     /** Every indexed photo and video, newest first. */
@@ -47,22 +49,23 @@ class PhotoLibrary(private val context: Context, val dao: LibraryDao, private va
 
     private fun granted(permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-    fun refresh() {
+    /** Rescans MediaStore. The returned job ends when this scan does, or when a newer one replaces it. */
+    fun refresh(): Job {
         rescan?.cancel()
-        rescan = scope.launch {
+        return scope.launch {
             delay(300)
             scanning.withLock {
-                if (!hasPermission()) { _status.value = "写真へのアクセスを許可してください"; return@withLock }
-                _status.value = "写真と動画を確認しています…"
+                if (!hasPermission()) { _state.value = ScanState(); return@withLock }
+                val limited = !granted(Manifest.permission.READ_MEDIA_IMAGES)
+                _state.update { it.copy(allowed = true, limited = limited, scanning = true) }
                 try {
                     if (scan()) _changes.tryEmit(Unit)
-                    val limited = !granted(Manifest.permission.READ_MEDIA_IMAGES)
-                    _status.value = if (limited) "許可した写真と動画のみ表示中 · すべて見るには写真の許可を変更" else "ギャラリーの写真と動画を読み取りました"
+                    _state.value = ScanState(allowed = true, limited = limited)
                 } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: SecurityException) { _status.value = "写真の許可が変更されました。再度許可してください" }
-                catch (_: Exception) { _status.value = "写真を読み取れませんでした。もう一度更新してください" }
+                catch (_: SecurityException) { _state.value = ScanState(failed = true) }
+                catch (_: Exception) { _state.value = ScanState(allowed = true, limited = limited, failed = true) }
             }
-        }
+        }.also { rescan = it }
     }
 
     /** Brings the index up to date with MediaStore. Returns whether anything changed. */
@@ -152,6 +155,12 @@ class PhotoLibrary(private val context: Context, val dao: LibraryDao, private va
         private val PHOTO_TYPES = listOf("image/jpeg", "image/heic", "image/heif", "image/png", "image/webp", "image/avif")
     }
 }
+
+/**
+ * [allowed] means photos may be read; [limited] that the user picked only some of them.
+ * [scanning] is true while MediaStore is read, and [failed] that the last scan stopped on an error.
+ */
+data class ScanState(val allowed: Boolean = false, val limited: Boolean = false, val scanning: Boolean = false, val failed: Boolean = false)
 
 /** Finds the gain map metadata of Ultra HDR (Adobe `hdrgm`) and ISO 21496-1 photos near the start of a file. */
 object HdrMarkers {
