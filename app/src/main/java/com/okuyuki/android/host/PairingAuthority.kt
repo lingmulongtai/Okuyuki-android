@@ -26,9 +26,12 @@ class PairingAuthority(private val clock: () -> Long = System::currentTimeMillis
         require(input.clientId.length in 1..80 && input.clientName.length in 1..80) { "Invalid client identity" }
         expire()
         val requestId = input.requestId
-        val existing = requestId?.let { requests[it]?.takeIf { request -> request.peer.clientId == input.clientId } }
-        if (requestId != null && existing == null) return PairResponse(requestId, "", "expired")
-        val request = existing ?: requests.values.firstOrNull { it.peer.clientId == input.clientId && it.state == "pending" } ?: run {
+        val request = if (requestId != null) {
+            requests[requestId]?.takeIf { it.peer.clientId == input.clientId } ?: return PairResponse(requestId, "", "expired")
+        } else {
+            // Only the requestId reaches an existing request, so knowing a clientId never yields its code or token.
+            // A device that starts over replaces its own pending request instead of stacking cards on the phone.
+            requests.values.removeAll { it.peer.clientId == input.clientId && it.state == "pending" }
             require(requests.size < 8) { "Too many pairing requests. Try again later." }
             val id = UUID.randomUUID().toString()
             val code = random.nextInt(10000).toString().padStart(4, '0')

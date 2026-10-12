@@ -7,6 +7,8 @@ pending requests expire after two minutes. Photo IDs are MediaStore IDs, not fil
 - `GET /v1/hello`: `Hello`; protocolVersion must equal 1.
 - `POST /v1/pair`: `PairRequest`; poll with the returned requestId until approved/rejected/expired.
   Both devices show the same four-digit code. Only the phone can approve. Approved response includes token.
+  A request without requestId always starts a new request with its own code and replaces the same client's
+  pending one; only the requestId reaches an existing request, so a known clientId never reveals its code or token.
 - `GET /v1/library?after=<last-id>`: `LibraryPage`, ordered by takenAt descending and ID descending.
   Maximum 48 entries. `next` is the last ID when more entries remain.
 - `GET /v1/items/{id}/thumb`: JPEG poster. Requested only for visible grid cells.
