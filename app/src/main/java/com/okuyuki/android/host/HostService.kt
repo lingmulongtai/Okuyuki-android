@@ -153,7 +153,7 @@ class HostService : Service() {
     private fun notification(message: String): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, HostService::class.java).setAction("stop"), PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(this, "host").setSmallIcon(R.drawable.ic_launcher).setContentTitle("Okuyuki")
+        return NotificationCompat.Builder(this, "host").setSmallIcon(R.drawable.ic_notification).setColor(0xFF2747E6.toInt()).setContentTitle("Okuyuki")
             .setContentText(message).setContentIntent(open).setOngoing(true).addAction(0, "接続をオフ", stop).build()
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
