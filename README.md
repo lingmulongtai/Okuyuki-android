@@ -3,7 +3,9 @@
 Galaxyの3D写真を、同じWi-FiにいるMeta Questから見るためのスマホ側アプリ。
 写真はスマホに置いたまま、Questは必要な写真だけを一時的に受け取ります。
 
-Companion: https://github.com/lingmulongtai/Okuyuki-quest
+LG webOSのテレビ向けOkuyuki TVでは、すべての写真と動画をテレビの解像度とHDRに合わせて見られます（開発中、[プロトコルv2](docs/PROTOCOL.md#protocol-v2-lg-webos-tv)）。
+
+Companion: https://github.com/lingmulongtai/Okuyuki-quest · TV: https://github.com/lingmulongtai/Okuyuki-webos
 Project: https://github.com/users/lingmulongtai/projects/2
 
 ## GalaxyとQuest 3Sで試す
