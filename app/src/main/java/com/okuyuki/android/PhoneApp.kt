@@ -31,6 +31,9 @@ private val dark = darkColorScheme(primary = Color(0xFF8FA3FF), background = Col
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
+    val preferences = remember { app.getSharedPreferences("onboarding", android.content.Context.MODE_PRIVATE) }
+    var showGuide by rememberSaveable { mutableStateOf(!preferences.getBoolean("completed", false)) }
+    var guidePage by rememberSaveable { mutableIntStateOf(0) }
     val photos by app.library.photos.collectAsStateWithLifecycle(emptyList())
     val status by app.library.status.collectAsStateWithLifecycle()
     val libraryState by app.library.state.collectAsStateWithLifecycle()
@@ -128,6 +131,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
                         Text("テーマは端末の設定に合わせます。")
+                        OutlinedButton(onClick = { guidePage = 0; showGuide = true }) { Text("使い方を見る") }
                         Text("ペアリング済みのQuest", style = MaterialTheme.typography.titleMedium)
                         if (peers.isEmpty()) Text("まだ接続したQuestはありません")
                         peers.forEach { peer -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -148,6 +152,30 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 Text("${photo.width} × ${photo.height} · HEIC · ${date(photo.takenAt)}")
                 Text("Questの一覧からこの写真を選ぶと、立体で表示されます。")
             } }) }
+        if (showGuide) {
+            val titles = listOf("Okuyukiへようこそ", "写真を見つける", "Questとつなぐ")
+            val descriptions = listOf(
+                "スマートフォンの3D写真を、同じネットワークのQuestで楽しめます。",
+                "写真へのアクセスを許可すると、ギャラリー内の対応する3D写真がライブラリに表示されます。",
+                "両方を同じWi-Fiにつなぎ、Questタブで待機をオンにします。Questに表示される番号を確認して接続を許可してください。"
+            )
+            fun finishGuide() {
+                preferences.edit().putBoolean("completed", true).apply()
+                showGuide = false
+            }
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text(titles[guidePage]) },
+                text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(descriptions[guidePage])
+                    Text("${guidePage + 1} / ${titles.size}", style = MaterialTheme.typography.labelMedium)
+                } },
+                confirmButton = { TextButton(onClick = {
+                    if (guidePage == titles.lastIndex) finishGuide() else guidePage++
+                }) { Text(if (guidePage == titles.lastIndex) "はじめる" else "次へ") } },
+                dismissButton = { TextButton(onClick = { finishGuide() }) { Text("スキップ") } }
+            )
+        }
     }
 }
 
