@@ -26,7 +26,7 @@ import java.net.NetworkInterface
 import java.util.UUID
 
 data class HostState(val running: Boolean = false, val port: Int = 0, val addresses: List<String> = emptyList(),
-    val clients: Int = 0, val viewingId: String? = null, val error: String? = null)
+    val clients: Int = 0, val viewingId: String? = null, val error: Int? = null)
 
 object HostRuntime {
     val state = MutableStateFlow(HostState())
@@ -46,9 +46,8 @@ class HostService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel("host", "Questとの接続", NotificationManager.IMPORTANCE_LOW))
-        startForeground(1, notification("Questを待っています"))
+        updateNotificationChannel()
+        startForeground(1, notification(getString(R.string.notify_waiting)))
         HostRuntime.state.value = HostState(running = true)
         app.library.refresh()
         scope.launch {
@@ -59,7 +58,7 @@ class HostService : Service() {
         scope.launch {
             HostRuntime.authority.pending.collect { requests ->
                 getSystemService(NotificationManager::class.java).notify(1,
-                    notification(if (requests.isEmpty()) "Questを待っています" else "接続番号を確認してください"))
+                    notification(getString(if (requests.isEmpty()) R.string.notify_waiting else R.string.notify_code)))
             }
         }
         scope.launch {
@@ -88,7 +87,7 @@ class HostService : Service() {
                     if (System.currentTimeMillis() - lastClientAt > 10 * 60_000) { stopSelf(); break }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { HostRuntime.state.value = HostState(error = "接続を開始できませんでした。Wi-Fiを確認してください"); stopSelf() }
+            catch (_: Exception) { HostRuntime.state.value = HostState(error = R.string.host_wifi_error); stopSelf() }
         }
     }
 
@@ -123,7 +122,7 @@ class HostService : Service() {
                 if (destroyed) runCatching { nsd.unregisterService(this) } else announced = true
             }
             override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                if (!destroyed) HostRuntime.state.update { it.copy(error = "自動検出を開始できませんでした。Questで表示されたアドレスを入力してください") }
+                if (!destroyed) HostRuntime.state.update { it.copy(error = R.string.host_discovery_error) }
             }
             override fun onServiceUnregistered(info: NsdServiceInfo) { announced = false }
             override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
@@ -136,7 +135,17 @@ class HostService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, HostService::class.java).setAction("stop"), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, "host").setSmallIcon(R.drawable.ic_launcher).setContentTitle("Okuyuki")
-            .setContentText(message).setContentIntent(open).setOngoing(true).addAction(0, "接続をオフ", stop).build()
+            .setContentText(message).setContentIntent(open).setOngoing(true).addAction(0, getString(R.string.notify_stop), stop).build()
+    }
+    private fun updateNotificationChannel() {
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel("host", getString(R.string.notify_channel), NotificationManager.IMPORTANCE_LOW))
+    }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateNotificationChannel()
+        val message = if (HostRuntime.authority.pending.value.isEmpty()) R.string.notify_waiting else R.string.notify_code
+        getSystemService(NotificationManager::class.java).notify(1, notification(getString(message)))
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") stopSelf()

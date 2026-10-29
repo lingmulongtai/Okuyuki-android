@@ -15,6 +15,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import android.app.LocaleManager
+import android.os.LocaleList
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.host.*
 import com.okuyuki.android.library.*
@@ -35,31 +40,33 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var showGuide by rememberSaveable { mutableStateOf(!preferences.getBoolean("completed", false)) }
     var guidePage by rememberSaveable { mutableIntStateOf(0) }
     val photos by app.library.photos.collectAsStateWithLifecycle(emptyList())
-    val status by app.library.status.collectAsStateWithLifecycle()
     val libraryState by app.library.state.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val locale = configuration.locales[0] ?: Locale.JAPANESE
+    val localeManager = LocalContext.current.getSystemService(LocaleManager::class.java)
     val host by HostRuntime.state.collectAsStateWithLifecycle()
     val pending by HostRuntime.authority.pending.collectAsStateWithLifecycle()
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
     val scope = rememberCoroutineScope()
     MaterialTheme(colorScheme = if (isSystemInDarkTheme()) dark else light) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = { NavigationBar { listOf("ライブラリ", "Quest", "設定").forEachIndexed { index, label ->
+            bottomBar = { NavigationBar { listOf(stringResource(R.string.library), "Quest", stringResource(R.string.settings)).forEachIndexed { index, label ->
                 NavigationBarItem(selected = tab == index, onClick = { tab = index }, icon = { Text(listOf("▦", "◎", "⚙")[index], fontSize = 24.sp) }, label = { Text(label) })
             } } }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else "設定", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                    Text(if (host.clients > 0) "● 接続中" else if (host.running) "● 待機中" else "オフ",
+                    Text(if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else stringResource(R.string.settings), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                    Text(if (host.clients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
                         color = if (host.clients > 0) Color(0xFF12805A) else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clickable { tab = 1 })
                 }
-                if (host.error != null) Text(host.error!!, Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error)
+                host.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error) }
                 pending.forEach { request ->
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("${request.name} と接続", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.pair_with, request.name), style = MaterialTheme.typography.titleMedium)
                             Text(request.code, style = MaterialTheme.typography.displaySmall)
-                            Text("Questに同じ番号が表示されていることを確認してください。")
+                            Text(stringResource(R.string.pair_instruction))
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Button(onClick = { scope.launch {
                                     HostRuntime.pairingMutex.withLock {
@@ -74,8 +81,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                                             }
                                         }
                                     }
-                                } }) { Text("許可") }
-                                TextButton(onClick = { HostRuntime.authority.reject(request.requestId) }) { Text("拒否") }
+                                } }) { Text(stringResource(R.string.allow)) }
+                                TextButton(onClick = { HostRuntime.authority.reject(request.requestId) }) { Text(stringResource(R.string.deny)) }
                             }
                         }
                     }
@@ -84,28 +91,35 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     0 -> {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                             val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
-                            Text(if (readable) "3D写真 · ${photos.size}枚" else "3D写真", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            TextButton(onClick = { app.library.refresh() }) { Text("更新") }
+                            Text(if (readable) stringResource(R.string.photo_count, photos.size) else stringResource(R.string.photos), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            TextButton(onClick = { app.library.refresh() }) { Text(stringResource(R.string.refresh)) }
                         }
-                        Text(status, Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(when (libraryState) {
+                            LibraryState.CHECKING -> R.string.status_checking
+                            LibraryState.PERMISSION_REQUIRED -> R.string.status_permission
+                            LibraryState.SCANNING -> R.string.status_scanning
+                            LibraryState.READY -> R.string.status_ready
+                            LibraryState.LIMITED -> R.string.status_limited
+                            LibraryState.ERROR -> R.string.status_error
+                        }), Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
                         if (libraryState == LibraryState.PERMISSION_REQUIRED) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text("Galaxyで撮った3D写真がここに並びます。写真はギャラリーに置いたまま読み取ります。")
-                            Button(onClick = requestPhotos) { Text("写真へのアクセスを許可") }
+                            Text(stringResource(R.string.permission_explain))
+                            Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_access)) }
                         } else if (libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED) {
                             if (photos.isEmpty()) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Text("表示できる3D写真がありません", style = MaterialTheme.typography.titleMedium)
-                                Text("Galaxyで撮影した3D写真をギャラリーに追加して、更新してください。")
+                                Text(stringResource(R.string.empty_title), style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.empty_body))
                                 if (libraryState == LibraryState.LIMITED) {
-                                    TextButton(onClick = requestPhotos) { Text("許可する写真を変更") }
+                                    TextButton(onClick = requestPhotos) { Text(stringResource(R.string.change_selection)) }
                                 }
                             } else LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                photos.groupBy { date(it.takenAt) }.forEach { (day, group) ->
-                                    item(span = { GridItemSpan(3) }) { Text("$day · ${group.size}枚", Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall) }
+                                photos.groupBy { date(it.takenAt, locale) }.forEach { (day, group) ->
+                                    item(span = { GridItemSpan(3) }) { Text(stringResource(R.string.day_count, day, group.size), Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall) }
                                     items(group, key = { it.id }) { photo ->
                                         Box(Modifier.aspectRatio(1f).clickable { detail = photo }) {
                                             PhoneThumbnail(app, photo, Modifier.fillMaxSize())
                                             if (host.viewingId == photo.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(4.dp), color = MaterialTheme.colorScheme.primary) {
-                                                Text("Questで表示中", Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                                                Text(stringResource(R.string.viewing_quest), Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
                                             }
                                         }
                                     }
@@ -115,49 +129,57 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     }
                     1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text("Questとつなぐ", style = MaterialTheme.typography.titleLarge); Text("同じWi-FiにいるQuestを待ちます") }
+                            Column(Modifier.weight(1f)) { Text(stringResource(R.string.connect_quest), style = MaterialTheme.typography.titleLarge); Text(stringResource(R.string.same_wifi)) }
                             Switch(checked = host.running, onCheckedChange = toggleHost, enabled = app.library.hasPermission())
                         }
-                        if (!app.library.hasPermission()) Button(onClick = requestPhotos) { Text("先に写真へのアクセスを許可") }
-                        Text(if (host.clients > 0) "Quest 接続中 · 写真をQuestで選んでください" else if (host.running) "QuestでOkuyukiを開き、スマホを選んでください" else "オンにするとQuestから写真を見られます。")
+                        if (!app.library.hasPermission()) Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
+                        Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off))
                         if (host.addresses.isNotEmpty()) {
-                            Text("自動で見つからない場合", style = MaterialTheme.typography.titleMedium)
-                            Text("Questで以下のアドレスを入力してください。")
+                            Text(stringResource(R.string.manual_title), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.manual_body))
                             host.addresses.forEach { Text(it, style = MaterialTheme.typography.titleLarge) }
                         }
-                        Text("見た写真はQuestに一時的に置かれ、終了時に消えます。クラウドは経由しません。")
-                        Text("接続先がない状態が10分続くと、待機を自動でオフにします。", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.privacy))
+                        Text(stringResource(R.string.timeout), style = MaterialTheme.typography.bodySmall)
                     }
                     else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
-                        Text("テーマは端末の設定に合わせます。")
-                        OutlinedButton(onClick = { guidePage = 0; showGuide = true }) { Text("使い方を見る") }
-                        Text("ペアリング済みのQuest", style = MaterialTheme.typography.titleMedium)
-                        if (peers.isEmpty()) Text("まだ接続したQuestはありません")
+                        Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
+                        val selectedLanguage = localeManager.applicationLocales[0]?.language ?: ""
+                        listOf("" to R.string.language_system, "ja" to R.string.language_japanese, "en" to R.string.language_english).forEach { (tag, label) ->
+                            Row(Modifier.fillMaxWidth().clickable { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }, verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = selectedLanguage == tag, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) })
+                                Text(stringResource(label))
+                            }
+                        }
+                        Text(stringResource(R.string.theme_system))
+                        OutlinedButton(onClick = { guidePage = 0; showGuide = true }) { Text(stringResource(R.string.guide_open)) }
+                        Text(stringResource(R.string.paired), style = MaterialTheme.typography.titleMedium)
+                        if (peers.isEmpty()) Text(stringResource(R.string.no_peers))
                         peers.forEach { peer -> Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(peer.name, Modifier.weight(1f))
                             TextButton(onClick = { scope.launch { HostRuntime.pairingMutex.withLock {
                                 app.database.dao().deletePeer(peer.clientId); refreshAuthority(app.database.dao())
-                            } } }) { Text("解除") }
+                            } } }) { Text(stringResource(R.string.remove)) }
                         } }
-                        OutlinedButton(onClick = requestPhotos) { Text("写真へのアクセスを変更") }
-                        Text("アルファ版 · 実機での検証は未完了です。信頼できる自宅のWi-Fiまたはスマホのテザリングで使用してください。")
+                        OutlinedButton(onClick = requestPhotos) { Text(stringResource(R.string.change_access)) }
+                        Text(stringResource(R.string.alpha_notice))
                     }
                 }
             }
         }
-        detail?.let { photo -> AlertDialog(onDismissRequest = { detail = null }, confirmButton = { TextButton(onClick = { detail = null }) { Text("閉じる") } },
+        detail?.let { photo -> AlertDialog(onDismissRequest = { detail = null }, confirmButton = { TextButton(onClick = { detail = null }) { Text(stringResource(R.string.close)) } },
             title = { Text(photo.name) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 PhoneThumbnail(app, photo, Modifier.fillMaxWidth().aspectRatio(photo.width.toFloat().coerceAtLeast(1f) / photo.height.coerceAtLeast(1)))
-                Text("${photo.width} × ${photo.height} · HEIC · ${date(photo.takenAt)}")
-                Text("Questの一覧からこの写真を選ぶと、立体で表示されます。")
+                Text("${photo.width} × ${photo.height} · HEIC · ${date(photo.takenAt, locale)}")
+                Text(stringResource(R.string.detail_hint))
             } }) }
         if (showGuide) {
-            val titles = listOf("Okuyukiへようこそ", "写真を見つける", "Questとつなぐ")
+            val titles = listOf(stringResource(R.string.guide_welcome), stringResource(R.string.guide_photos), stringResource(R.string.connect_quest))
             val descriptions = listOf(
-                "スマートフォンの3D写真を、同じネットワークのQuestで楽しめます。",
-                "写真へのアクセスを許可すると、ギャラリー内の対応する3D写真がライブラリに表示されます。",
-                "両方を同じWi-Fiにつなぎ、Questタブで待機をオンにします。Questに表示される番号を確認して接続を許可してください。"
+                stringResource(R.string.guide_intro),
+                stringResource(R.string.guide_library),
+                stringResource(R.string.guide_connect)
             )
             fun finishGuide() {
                 preferences.edit().putBoolean("completed", true).apply()
@@ -172,8 +194,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 } },
                 confirmButton = { TextButton(onClick = {
                     if (guidePage == titles.lastIndex) finishGuide() else guidePage++
-                }) { Text(if (guidePage == titles.lastIndex) "はじめる" else "次へ") } },
-                dismissButton = { TextButton(onClick = { finishGuide() }) { Text("スキップ") } }
+                }) { Text(if (guidePage == titles.lastIndex) stringResource(R.string.start) else stringResource(R.string.next)) } },
+                dismissButton = { TextButton(onClick = { finishGuide() }) { Text(stringResource(R.string.skip)) } }
             )
         }
     }
@@ -188,7 +210,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     }
 }
 
-private fun date(time: Long) = SimpleDateFormat("M月d日（E）", Locale.JAPANESE).format(Date(time))
+private fun date(time: Long, locale: Locale) = SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMM d E"), locale).format(Date(time))
 private suspend fun refreshAuthority(dao: LibraryDao) {
     HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
 }
