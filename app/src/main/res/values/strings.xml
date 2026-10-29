@@ -66,4 +66,7 @@
     <string name="host_start_error">待機を開始できませんでした。アプリを開いた状態で再試行してください</string>
     <string name="host_wifi_error">接続を開始できませんでした。Wi-Fiを確認してください</string>
     <string name="host_discovery_error">自動検出を開始できませんでした。Questで表示されたアドレスを入力してください</string>
+    <string name="panorama_video">360°動画をプレビュー</string>
+    <string name="panorama_video_hint">結合済みの360° MP4動画を選んでください。OSV・LRFの直接再生はまだ対応していません。</string>
+    <string name="panorama_video_error">この動画を再生できませんでした。対応する結合済みMP4を選んでください。</string>
 </resources>

@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import android.app.LocaleManager
 import android.os.LocaleList
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.host.*
 import com.okuyuki.android.library.*
@@ -39,6 +41,8 @@ private val dark = darkColorScheme(primary = Color(0xFF8FA3FF), background = Col
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
+    var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
+    val choosePanoramaVideo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { panoramaVideo = it }
     val preferences = remember { app.getSharedPreferences("onboarding", android.content.Context.MODE_PRIVATE) }
     val appearance = remember { app.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
     var theme by remember { mutableStateOf(appearance.getString("theme", "system") ?: "system") }
@@ -95,6 +99,10 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 }
                 when (tab) {
                     0 -> {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                            OutlinedButton(onClick = { choosePanoramaVideo.launch(arrayOf("video/mp4")) }) { Text(stringResource(R.string.panorama_video)) }
+                            Text(stringResource(R.string.panorama_video_hint), style = MaterialTheme.typography.bodySmall)
+                        }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                             val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
                             Text(if (readable) stringResource(R.string.photo_count, photos.size) else stringResource(R.string.photos), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -191,6 +199,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 Text("${photo.width} × ${photo.height} · HEIC · ${date(photo.takenAt, locale)}")
                 Text(stringResource(R.string.detail_hint))
             } }) }
+        panoramaVideo?.let { uri -> PanoramaVideo(uri) { panoramaVideo = null } }
         if (showGuide) {
             val titles = listOf(stringResource(R.string.guide_welcome), stringResource(R.string.guide_photos), stringResource(R.string.connect_quest))
             val descriptions = listOf(
