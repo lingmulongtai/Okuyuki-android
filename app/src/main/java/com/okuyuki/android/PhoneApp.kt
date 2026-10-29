@@ -45,12 +45,14 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
+    var panoramaPhoto by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoProxy by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoSelectionError by remember { mutableStateOf(false) }
     var showMediaChooser by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var osmoSelection by remember { mutableStateOf<Job?>(null) }
     val choosePanoramaVideo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { panoramaVideo = it }
+    val choosePanoramaPhoto = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { panoramaPhoto = it }
     val chooseOsmoProxy = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             osmoSelection?.cancel()
@@ -233,12 +235,16 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 Text(stringResource(R.string.detail_hint))
             } }) }
         panoramaVideo?.let { uri -> PanoramaVideo(uri) { panoramaVideo = null } }
+        panoramaPhoto?.let { uri -> PanoramaPhoto(uri) { panoramaPhoto = null } }
         osmoProxy?.let { uri -> OsmoProxyPreview(uri) { osmoProxy = null } }
         if (showMediaChooser) AlertDialog(
             onDismissRequest = { showMediaChooser = false },
             title = { Text(stringResource(R.string.open_360)) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.panorama_video_hint), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { showMediaChooser = false; choosePanoramaPhoto.launch(arrayOf("image/*")) }) {
+                    Text(stringResource(R.string.panorama_photo))
+                }
                 OutlinedButton(onClick = { showMediaChooser = false; choosePanoramaVideo.launch(arrayOf("video/mp4")) }) {
                     Text(stringResource(R.string.panorama_video))
                 }
