@@ -26,6 +26,14 @@ Project: https://github.com/users/lingmulongtai/projects/2
 通常の写真は3D一覧の対象外です。GalaxyのSamsungステレオHEICの原本を使ってください。
 実機での原本デコード・左右の立体表示は未検証です。アルファの通信は承認付きHTTPなので、信頼できる自宅Wi-FiまたはGalaxyのテザリングで試してください。
 
+## 開発中の機能
+
+配布中のv0.1.0-alpha.1には、以下の開発中の変更は含まれていません。
+
+- 設定で日本語・英語・端末の言語、ライト・ダーク・端末のテーマを選択できます。
+- ライブラリの「360°動画をプレビュー」から、結合済みの360° MP4を選択してスマートフォン上で表示できます。操作や映像は実機で未検証です。
+- このプレビューはAndroid上の動画表示のみです。360°写真、Questでの360°再生、DJI Osmo 360の `.OSV`・`.LRF` の直接再生にはまだ対応していません。
+
 ## Build
 JDK 17、Android SDK 36。`./gradlew assembleDebug`（Windows: `gradlew.bat`）。
 WindowsではASCIIのパスにcloneまたはjunctionを作ってビルドしてください。
