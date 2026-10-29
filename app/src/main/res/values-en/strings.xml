@@ -26,7 +26,10 @@
     <string name="manual_body">Enter the following address on Quest.</string>
     <string name="privacy">Viewed photos are cached temporarily on Quest and removed when you exit. No cloud service is used.</string>
     <string name="timeout">Waiting stops automatically after 10 minutes without a connection.</string>
-    <string name="theme_system">The theme follows your device settings.</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">Follow device settings</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="guide_open">View guide</string>
     <string name="paired">Paired Quest devices</string>
     <string name="no_peers">No Quest devices paired yet</string>

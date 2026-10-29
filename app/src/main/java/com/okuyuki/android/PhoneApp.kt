@@ -5,6 +5,8 @@ import android.util.Size
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import android.app.LocaleManager
 import android.os.LocaleList
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +40,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
     val preferences = remember { app.getSharedPreferences("onboarding", android.content.Context.MODE_PRIVATE) }
+    val appearance = remember { app.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
+    var theme by remember { mutableStateOf(appearance.getString("theme", "system") ?: "system") }
     var showGuide by rememberSaveable { mutableStateOf(!preferences.getBoolean("completed", false)) }
     var guidePage by rememberSaveable { mutableIntStateOf(0) }
     val photos by app.library.photos.collectAsStateWithLifecycle(emptyList())
@@ -48,7 +53,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     val pending by HostRuntime.authority.pending.collectAsStateWithLifecycle()
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
     val scope = rememberCoroutineScope()
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) dark else light) {
+    val darkTheme = when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
+    MaterialTheme(colorScheme = if (darkTheme) dark else light) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background,
             bottomBar = { NavigationBar { listOf(stringResource(R.string.library), "Quest", stringResource(R.string.settings)).forEachIndexed { index, label ->
                 NavigationBarItem(selected = tab == index, onClick = { tab = index }, icon = { Text(listOf("▦", "◎", "⚙")[index], fontSize = 24.sp) }, label = { Text(label) })
@@ -146,13 +152,24 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                         Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
                         Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
                         val selectedLanguage = localeManager.applicationLocales[0]?.language ?: ""
-                        listOf("" to R.string.language_system, "ja" to R.string.language_japanese, "en" to R.string.language_english).forEach { (tag, label) ->
-                            Row(Modifier.fillMaxWidth().clickable { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }, verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = selectedLanguage == tag, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) })
-                                Text(stringResource(label))
+                        Column(Modifier.selectableGroup()) {
+                            listOf("" to R.string.language_system, "ja" to R.string.language_japanese, "en" to R.string.language_english).forEach { (tag, label) ->
+                                Row(Modifier.fillMaxWidth().selectable(selected = selectedLanguage == tag, role = Role.RadioButton, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }), verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(selected = selectedLanguage == tag, onClick = null)
+                                    Text(stringResource(label))
+                                }
                             }
                         }
-                        Text(stringResource(R.string.theme_system))
+                        Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
+                        Column(Modifier.selectableGroup()) {
+                            listOf("system" to R.string.theme_system, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEach { (value, label) ->
+                                val select = { theme = value; appearance.edit().putString("theme", value).apply() }
+                                Row(Modifier.fillMaxWidth().selectable(selected = theme == value, role = Role.RadioButton, onClick = select), verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(selected = theme == value, onClick = null)
+                                    Text(stringResource(label))
+                                }
+                            }
+                        }
                         OutlinedButton(onClick = { guidePage = 0; showGuide = true }) { Text(stringResource(R.string.guide_open)) }
                         Text(stringResource(R.string.paired), style = MaterialTheme.typography.titleMedium)
                         if (peers.isEmpty()) Text(stringResource(R.string.no_peers))

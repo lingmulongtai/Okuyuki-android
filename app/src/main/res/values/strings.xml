@@ -26,7 +26,10 @@
     <string name="manual_body">Questで以下のアドレスを入力してください。</string>
     <string name="privacy">見た写真はQuestに一時的に置かれ、終了時に消えます。クラウドは経由しません。</string>
     <string name="timeout">接続先がない状態が10分続くと、待機を自動でオフにします。</string>
-    <string name="theme_system">テーマは端末の設定に合わせます。</string>
+    <string name="theme">テーマ</string>
+    <string name="theme_system">端末の設定に従う</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
     <string name="guide_open">使い方を見る</string>
     <string name="paired">ペアリング済みのQuest</string>
     <string name="no_peers">まだ接続したQuestはありません</string>
