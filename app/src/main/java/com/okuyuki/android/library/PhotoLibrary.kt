@@ -18,11 +18,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.FileInputStream
 
+enum class LibraryState { CHECKING, PERMISSION_REQUIRED, SCANNING, READY, LIMITED, ERROR }
+
 class PhotoLibrary(private val context: Context, val dao: LibraryDao, private val scope: CoroutineScope) {
     private val scanning = Mutex()
     private var rescan: Job? = null
-    private val _status = MutableStateFlow("写真へのアクセスを許可してください")
+    private val _status = MutableStateFlow("写真へのアクセスを確認しています…")
     val status = _status.asStateFlow()
+    private val _state = MutableStateFlow(LibraryState.CHECKING)
+    val state = _state.asStateFlow()
     val photos = dao.observePhotos()
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) { refresh() }
@@ -35,18 +39,32 @@ class PhotoLibrary(private val context: Context, val dao: LibraryDao, private va
 
     fun refresh() {
         rescan?.cancel()
+        _state.value = LibraryState.CHECKING
+        _status.value = "写真へのアクセスを確認しています…"
         rescan = scope.launch {
             delay(300)
             scanning.withLock {
-                if (!hasPermission()) { _status.value = "写真へのアクセスを許可してください"; return@withLock }
+                if (!hasPermission()) {
+                    _status.value = "写真へのアクセスを許可してください"
+                    _state.value = LibraryState.PERMISSION_REQUIRED
+                    return@withLock
+                }
                 _status.value = "3D写真を確認しています…"
+                _state.value = LibraryState.SCANNING
                 try {
                     scan()
                     val limited = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED
                     _status.value = if (limited) "許可した写真のみ表示中 · すべて見るには写真の許可を変更" else "ギャラリーの3D写真を表示中"
+                    _state.value = if (limited) LibraryState.LIMITED else LibraryState.READY
                 } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: SecurityException) { _status.value = "写真の許可が変更されました。再度許可してください" }
-                catch (_: Exception) { _status.value = "写真を読み取れませんでした。もう一度更新してください" }
+                catch (_: SecurityException) {
+                    _status.value = "写真の許可が変更されました。再度許可してください"
+                    _state.value = LibraryState.PERMISSION_REQUIRED
+                }
+                catch (_: Exception) {
+                    _status.value = "写真を読み取れませんでした。もう一度更新してください"
+                    _state.value = LibraryState.ERROR
+                }
             }
         }
     }

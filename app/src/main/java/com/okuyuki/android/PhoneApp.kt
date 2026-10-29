@@ -33,6 +33,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
     val photos by app.library.photos.collectAsStateWithLifecycle(emptyList())
     val status by app.library.status.collectAsStateWithLifecycle()
+    val libraryState by app.library.state.collectAsStateWithLifecycle()
     val host by HostRuntime.state.collectAsStateWithLifecycle()
     val pending by HostRuntime.authority.pending.collectAsStateWithLifecycle()
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
@@ -79,22 +80,30 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 when (tab) {
                     0 -> {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("3D写真 · ${photos.size}枚", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
+                            Text(if (readable) "3D写真 · ${photos.size}枚" else "3D写真", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                             TextButton(onClick = { app.library.refresh() }) { Text("更新") }
                         }
                         Text(status, Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
-                        if (photos.isEmpty()) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        if (libraryState == LibraryState.PERMISSION_REQUIRED) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text("Galaxyで撮った3D写真がここに並びます。写真はギャラリーに置いたまま読み取ります。")
                             Button(onClick = requestPhotos) { Text("写真へのアクセスを許可") }
-                        }
-                        else LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            photos.groupBy { date(it.takenAt) }.forEach { (day, group) ->
-                                item(span = { GridItemSpan(3) }) { Text("$day · ${group.size}枚", Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall) }
-                                items(group, key = { it.id }) { photo ->
-                                    Box(Modifier.aspectRatio(1f).clickable { detail = photo }) {
-                                        PhoneThumbnail(app, photo, Modifier.fillMaxSize())
-                                        if (host.viewingId == photo.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(4.dp), color = MaterialTheme.colorScheme.primary) {
-                                            Text("Questで表示中", Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                        } else if (libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED) {
+                            if (photos.isEmpty()) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("表示できる3D写真がありません", style = MaterialTheme.typography.titleMedium)
+                                Text("Galaxyで撮影した3D写真をギャラリーに追加して、更新してください。")
+                                if (libraryState == LibraryState.LIMITED) {
+                                    TextButton(onClick = requestPhotos) { Text("許可する写真を変更") }
+                                }
+                            } else LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                photos.groupBy { date(it.takenAt) }.forEach { (day, group) ->
+                                    item(span = { GridItemSpan(3) }) { Text("$day · ${group.size}枚", Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall) }
+                                    items(group, key = { it.id }) { photo ->
+                                        Box(Modifier.aspectRatio(1f).clickable { detail = photo }) {
+                                            PhoneThumbnail(app, photo, Modifier.fillMaxSize())
+                                            if (host.viewingId == photo.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(4.dp), color = MaterialTheme.colorScheme.primary) {
+                                                Text("Questで表示中", Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                                            }
                                         }
                                     }
                                 }
