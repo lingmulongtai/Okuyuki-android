@@ -1,6 +1,7 @@
 package com.okuyuki.android
 
 import android.graphics.Bitmap
+import android.app.Activity
 import android.util.Size
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -20,11 +21,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import android.app.LocaleManager
 import android.os.LocaleList
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.host.*
 import com.okuyuki.android.library.*
@@ -58,6 +61,15 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
     val scope = rememberCoroutineScope()
     val darkTheme = when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
+    val view = LocalView.current
+    SideEffect {
+        (view.context as? Activity)?.window?.let { window ->
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
+    }
     MaterialTheme(colorScheme = if (darkTheme) dark else light) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background,
             bottomBar = { NavigationBar { listOf(stringResource(R.string.library), "Quest", stringResource(R.string.settings)).forEachIndexed { index, label ->
