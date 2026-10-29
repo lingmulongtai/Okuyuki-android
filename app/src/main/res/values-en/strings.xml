@@ -67,6 +67,13 @@
     <string name="host_wifi_error">Could not start connection. Check Wi-Fi.</string>
     <string name="host_discovery_error">Discovery failed. Enter the address shown here on Quest.</string>
     <string name="panorama_video">Preview 360° video</string>
-    <string name="panorama_video_hint">Choose a stitched 360° MP4 video. Direct OSV and LRF playback is not supported yet.</string>
+    <string name="open_360">Open 360° video</string>
+    <string name="panorama_video_hint">Choose a stitched 360° MP4 video. Use the button below for LRF. Direct OSV playback is not supported yet.</string>
     <string name="panorama_video_error">Could not play this video. Choose a supported stitched MP4.</string>
+    <string name="osmo_preview">Preview Osmo 360 LRF</string>
+    <string name="osmo_approximate">Experimental approximation. Drag to look around. Lens calibration and stabilization are not applied, so seams may be misaligned.</string>
+    <string name="osmo_error">Could not play this file. Choose an Osmo 360 LRF file.</string>
+    <string name="osmo_choose_error">Choose an LRF file.</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
 </resources>

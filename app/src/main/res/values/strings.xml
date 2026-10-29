@@ -67,6 +67,13 @@
     <string name="host_wifi_error">接続を開始できませんでした。Wi-Fiを確認してください</string>
     <string name="host_discovery_error">自動検出を開始できませんでした。Questで表示されたアドレスを入力してください</string>
     <string name="panorama_video">360°動画をプレビュー</string>
-    <string name="panorama_video_hint">結合済みの360° MP4動画を選んでください。OSV・LRFの直接再生はまだ対応していません。</string>
+    <string name="open_360">360°動画を開く</string>
+    <string name="panorama_video_hint">結合済みの360° MP4動画を選んでください。LRFは下のボタンから試せます。OSVの直接再生は未対応です。</string>
     <string name="panorama_video_error">この動画を再生できませんでした。対応する結合済みMP4を選んでください。</string>
+    <string name="osmo_preview">Osmo 360 LRFをプレビュー</string>
+    <string name="osmo_approximate">実験的な簡易表示です。ドラッグして見回せます。レンズ補正や手ぶれ補正は適用されず、つなぎ目にずれが出ます。</string>
+    <string name="osmo_error">このファイルを再生できませんでした。Osmo 360のLRFファイルを選んでください。</string>
+    <string name="osmo_choose_error">LRFファイルを選んでください。</string>
+    <string name="play">再生</string>
+    <string name="pause">一時停止</string>
 </resources>

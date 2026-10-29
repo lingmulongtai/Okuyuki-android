@@ -45,7 +45,29 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
+    var osmoProxy by remember { mutableStateOf<android.net.Uri?>(null) }
+    var osmoSelectionError by remember { mutableStateOf(false) }
+    var showMediaChooser by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var osmoSelection by remember { mutableStateOf<Job?>(null) }
     val choosePanoramaVideo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { panoramaVideo = it }
+    val chooseOsmoProxy = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            osmoSelection?.cancel()
+            osmoSelection = scope.launch {
+                val name = withContext(Dispatchers.IO) {
+                    try {
+                        app.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                            if (it.moveToFirst()) it.getString(0) else null
+                        }
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { null }
+                }
+                osmoSelectionError = name?.endsWith(".lrf", ignoreCase = true) != true
+                if (!osmoSelectionError) osmoProxy = uri
+            }
+        }
+    }
     val preferences = remember { app.getSharedPreferences("onboarding", android.content.Context.MODE_PRIVATE) }
     val appearance = remember { app.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
     var theme by remember { mutableStateOf(appearance.getString("theme", "system") ?: "system") }
@@ -59,7 +81,6 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     val host by HostRuntime.state.collectAsStateWithLifecycle()
     val pending by HostRuntime.authority.pending.collectAsStateWithLifecycle()
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
-    val scope = rememberCoroutineScope()
     val darkTheme = when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
     val view = LocalView.current
     SideEffect {
@@ -112,8 +133,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 when (tab) {
                     0 -> {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                            OutlinedButton(onClick = { choosePanoramaVideo.launch(arrayOf("video/mp4")) }) { Text(stringResource(R.string.panorama_video)) }
-                            Text(stringResource(R.string.panorama_video_hint), style = MaterialTheme.typography.bodySmall)
+                            OutlinedButton(onClick = { showMediaChooser = true }) { Text(stringResource(R.string.open_360)) }
+                            if (osmoSelectionError) Text(stringResource(R.string.osmo_choose_error), color = MaterialTheme.colorScheme.error)
                         }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                             val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
@@ -212,6 +233,21 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 Text(stringResource(R.string.detail_hint))
             } }) }
         panoramaVideo?.let { uri -> PanoramaVideo(uri) { panoramaVideo = null } }
+        osmoProxy?.let { uri -> OsmoProxyPreview(uri) { osmoProxy = null } }
+        if (showMediaChooser) AlertDialog(
+            onDismissRequest = { showMediaChooser = false },
+            title = { Text(stringResource(R.string.open_360)) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.panorama_video_hint), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { showMediaChooser = false; choosePanoramaVideo.launch(arrayOf("video/mp4")) }) {
+                    Text(stringResource(R.string.panorama_video))
+                }
+                OutlinedButton(onClick = { showMediaChooser = false; osmoSelectionError = false; chooseOsmoProxy.launch(arrayOf("*/*")) }) {
+                    Text(stringResource(R.string.osmo_preview))
+                }
+            } },
+            confirmButton = { TextButton(onClick = { showMediaChooser = false }) { Text(stringResource(R.string.close)) } }
+        )
         if (showGuide) {
             val titles = listOf(stringResource(R.string.guide_welcome), stringResource(R.string.guide_photos), stringResource(R.string.connect_quest))
             val descriptions = listOf(
