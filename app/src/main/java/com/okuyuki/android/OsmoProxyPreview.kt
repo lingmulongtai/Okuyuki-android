@@ -82,6 +82,7 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
                     onValueChange = { seeking = true; position = it.toLong() },
                     onValueChangeFinished = { player.seekTo(position); seeking = false },
                     valueRange = 0f..duration.coerceAtLeast(1L).toFloat(), enabled = duration > 0)
+                VideoShareButton(uri, com.okuyuki.protocol.PanoramaVideoFormat.OSMO_LRF)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = { if (playing) player.pause() else player.play() }, enabled = !failed) {
                         Text(stringResource(if (playing) R.string.pause else R.string.play))
