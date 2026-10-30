@@ -21,7 +21,7 @@ internal fun OsmoCalibration.toShareCalibration(): PanoramaStereoCalibration {
 internal object OsmoCalibrationReader {
     private const val MAX_MOOV = 64 * 1024 * 1024
     private const val MAX_SAMPLE = 1024 * 1024
-    private data class Box(val type: String, val content: Int, val end: Int)
+    internal data class Box(val type: String, val content: Int, val end: Int)
 
     fun read(channel: FileChannel, start: Long, length: Long, format: PanoramaVideoFormat = PanoramaVideoFormat.OSMO_LRF): OsmoCalibration? = runCatching {
         require(start >= 0 && length in 8..channel.size() && start <= channel.size() - length)
@@ -77,7 +77,7 @@ internal object OsmoCalibrationReader {
         null
     }.getOrNull()
 
-    private fun boxes(data: ByteArray, start: Int, end: Int): List<Box> {
+    internal fun boxes(data: ByteArray, start: Int, end: Int): List<Box> {
         val out = mutableListOf<Box>(); var at = start
         while (at < end) {
             require(end - at >= 8 && out.size < 100000)
@@ -90,16 +90,16 @@ internal object OsmoCalibrationReader {
         }
         return out
     }
-    private fun u32(data: ByteArray, at: Int, end: Int): Long {
+    internal fun u32(data: ByteArray, at: Int, end: Int): Long {
         require(at >= 0 && at <= end - 4)
         return ByteBuffer.wrap(data, at, 4).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xffffffffL
     }
-    private fun u64(data: ByteArray, at: Int, end: Int): Long {
+    internal fun u64(data: ByteArray, at: Int, end: Int): Long {
         require(at >= 0 && at <= end - 8)
         return ByteBuffer.wrap(data, at, 8).order(ByteOrder.BIG_ENDIAN).long.also { require(it >= 0) }
     }
-    private data class Field(val number: Int, val wire: Int, val bytes: ByteArray)
-    private fun fields(data: ByteArray): List<Field> {
+    internal data class Field(val number: Int, val wire: Int, val bytes: ByteArray)
+    internal fun fields(data: ByteArray): List<Field> {
         var pos = 0
         fun varint(): Long {
             var out = 0L; var shift = 0
@@ -129,12 +129,12 @@ internal object OsmoCalibrationReader {
         }
         return out
     }
-    private fun message(list: List<Field>, id: Int): List<Field>? = list.firstOrNull { it.number == id && it.wire == 2 }?.let { fields(it.bytes) }
+    internal fun message(list: List<Field>, id: Int): List<Field>? = list.firstOrNull { it.number == id && it.wire == 2 }?.let { fields(it.bytes) }
     private fun scalar(list: List<Field>, id: Int): Long? {
         val bytes = list.firstOrNull { it.number == id && it.wire == 0 }?.bytes ?: return null
         var out = 0L; bytes.forEachIndexed { i, byte -> out = out or ((byte.toLong() and 127) shl (7 * i)) }; return out
     }
-    private fun float(list: List<Field>, id: Int, default: Float? = null): Float {
+    internal fun float(list: List<Field>, id: Int, default: Float? = null): Float {
         val field = list.firstOrNull { it.number == id && it.wire == 5 } ?: return requireNotNull(default)
         return ByteBuffer.wrap(field.bytes).order(ByteOrder.LITTLE_ENDIAN).float.also { require(it.isFinite()) }
     }
