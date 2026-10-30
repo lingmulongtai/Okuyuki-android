@@ -47,6 +47,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
     var panoramaPhoto by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoProxy by remember { mutableStateOf<android.net.Uri?>(null) }
+    var osmoVideo by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoSelectionError by remember { mutableStateOf(false) }
     var showMediaChooser by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -65,8 +66,10 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     } catch (cancelled: CancellationException) { throw cancelled }
                     catch (_: Exception) { null }
                 }
-                osmoSelectionError = name?.endsWith(".lrf", ignoreCase = true) != true
-                if (!osmoSelectionError) osmoProxy = uri
+                val isProxy = name?.endsWith(".lrf", ignoreCase = true) == true
+                val isOriginal = name?.endsWith(".osv", ignoreCase = true) == true
+                osmoSelectionError = !isProxy && !isOriginal
+                if (isProxy) osmoProxy = uri else if (isOriginal) osmoVideo = uri
             }
         }
     }
@@ -247,6 +250,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
         panoramaVideo?.let { uri -> PanoramaVideo(uri) { panoramaVideo = null } }
         panoramaPhoto?.let { uri -> PanoramaPhoto(uri) { panoramaPhoto = null } }
         osmoProxy?.let { uri -> OsmoProxyPreview(uri) { osmoProxy = null } }
+        osmoVideo?.let { uri -> OsmoVideoPreview(uri) { osmoVideo = null } }
         if (showMediaChooser) AlertDialog(
             onDismissRequest = { showMediaChooser = false },
             title = { Text(stringResource(R.string.open_360)) },
@@ -259,7 +263,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     Text(stringResource(R.string.panorama_video))
                 }
                 OutlinedButton(onClick = { showMediaChooser = false; osmoSelectionError = false; chooseOsmoProxy.launch(arrayOf("*/*")) }) {
-                    Text(stringResource(R.string.osmo_preview))
+                    Text(stringResource(R.string.osmo_picker))
                 }
             } },
             confirmButton = { TextButton(onClick = { showMediaChooser = false }) { Text(stringResource(R.string.close)) } }

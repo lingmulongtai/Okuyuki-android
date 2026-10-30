@@ -76,16 +76,20 @@
     <string name="panorama_shared">Sharing a 360° photo. Open it on your Quest.</string>
     <string name="panorama_share_error">Could not share. Check that waiting is on and the photo is 64 MB or smaller.</string>
     <string name="panorama_stop_share">Stop sharing 360° photo</string>
-    <string name="panorama_video_hint">Choose a stitched 360° photo or MP4 video, or an Osmo 360 LRF. Direct OSV playback is not supported yet.</string>
+    <string name="panorama_video_hint">Choose a stitched 360° photo or MP4 video, or an Osmo 360 LRF. Direct OSV preview is experimental.</string>
     <string name="panorama_video_error">Could not play this video. Choose a supported stitched MP4.</string>
     <string name="osmo_preview">Preview Osmo 360 LRF</string>
     <string name="osmo_approximate">Experimental approximation. Drag to look around. Lens calibration and stabilization are not applied, so seams may be misaligned.</string>
     <string name="osmo_error">Could not play this file. Choose an Osmo 360 LRF file.</string>
-    <string name="osmo_choose_error">Choose an LRF file.</string>
+    <string name="osmo_choose_error">Choose an LRF or OSV file.</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
     <string name="notify_video_sharing">Sharing a 360° video</string>
     <string name="panorama_video_shared">Sharing a 360° video. Open it on Quest.</string>
     <string name="panorama_video_stop_share">Stop sharing 360° video</string>
     <string name="panorama_video_share_error">Could not share video. Check the connection, size (up to 64 GiB), and that the file is seekable on this device.</string>
+    <string name="osmo_picker">Open Osmo 360 LRF or OSV</string>
+    <string name="osv_preview">Preview Osmo 360 OSV</string>
+    <string name="osv_experimental">Experimental direct playback uses two 4K video streams. Misalignment and seams may occur. Lens and stabilization corrections are not available.</string>
+    <string name="osv_error">Could not play this OSV. The device may not support two simultaneous 4K HEVC streams.</string>
 </resources>
