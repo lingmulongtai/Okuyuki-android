@@ -225,6 +225,7 @@ internal class DualTrackFisheyeView(context: Context, private val players: List<
 
         private fun drawSynchronized() {
             if (resetting) { GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT); return }
+            var projected = false
             if (freezeRequested.get() && pairedIntact) frozen.set(true)
             if (!frozen.get()) for (i in 0..1) if (signals[i].getAndSet(false)) pairer.frameAvailable(i, pairer.generation())
             for (iteration in 0 until 16) {
@@ -239,6 +240,7 @@ internal class DualTrackFisheyeView(context: Context, private val players: List<
                     }
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBuffer[0])
                     drawProjection(correction)
+                    projected = true
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
                     frameValid = true
                     pairer.presented(ready.presentationTimeUs, ready.generation)
@@ -261,7 +263,7 @@ internal class DualTrackFisheyeView(context: Context, private val players: List<
                     OsmoPairAction.Wait, OsmoPairAction.Ended -> break
                 }
             }
-            if (framesVisible && pairedIntact && pairedPts != null) {
+            if (!projected && framesVisible && pairedIntact && pairedPts != null) {
                 val correction = if (stabilizationEnabled) stabilization?.correctionAt(pairedPts!!) else null
                 if (stabilizationEnabled && correction == null) {
                     stabilizationEnabled = false
