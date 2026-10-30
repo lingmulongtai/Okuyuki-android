@@ -1,8 +1,8 @@
 package com.okuyuki.android
 
 import com.okuyuki.protocol.PanoramaVideoFormat
-import com.okuyuki.protocol.OsmoMotionFrame
 import com.okuyuki.protocol.OsmoMotionTrack
+import com.okuyuki.protocol.PackedMotionFrames
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -115,15 +115,15 @@ internal object OsmoMotionReader {
         for (metadata in tracks.filter { it.kind == "djmd" && aligned(it) }) {
             val firstSample = readAt(metadata.offsets[0], metadata.sizes[0])
             if (reader.parseProduct(firstSample, format) == null) continue
-            val frames = ArrayList<OsmoMotionFrame>(metadata.count)
+            val frames = PackedMotionFrames.Builder(metadata.count)
             var valid = true
             for (i in 0 until metadata.count) {
                 val attitude = parseAttitude(if (i == 0) firstSample else readAt(metadata.offsets[i], metadata.sizes[i]))
                 if (attitude == null) { valid = false; break }
                 val time = Math.multiplyExact(Math.multiplyExact(i.toLong(), metadata.delta), 1000000L) / metadata.timescale
-                frames += OsmoMotionFrame(time, attitude)
+                frames.add(time, attitude[0], attitude[1], attitude[2], attitude[3])
             }
-            if (valid) return OsmoMotionTrack(frames, metadata.delta * 1000000L / metadata.timescale)
+            if (valid) return OsmoMotionTrack(frames.build(), metadata.delta * 1000000L / metadata.timescale)
         }
         null
     } catch (_: Exception) { null }
