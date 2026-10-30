@@ -3,6 +3,7 @@ package com.okuyuki.android
 import com.okuyuki.protocol.PanoramaVideoFormat
 import com.okuyuki.protocol.OsmoMotionFrame
 import com.okuyuki.protocol.OsmoMotionTrack
+import com.okuyuki.protocol.OsmoMotionCodec
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
@@ -78,6 +79,7 @@ class OsmoMotionReaderTest {
             val track = OsmoMotionReader.read(channel, 0, channel.size(), format)
             assertNotNull("validated sample track is required", track)
             assertEquals(count, track!!.frames.size)
+            assertEquals(track, OsmoMotionCodec.decode(OsmoMotionCodec.encode(track)))
             assertEquals(intervalUs, track.frameIntervalUs)
             assertEquals(0L, track.frames.first().presentationTimeUs)
             assertEquals((count - 1) * intervalUs, track.frames.last().presentationTimeUs)

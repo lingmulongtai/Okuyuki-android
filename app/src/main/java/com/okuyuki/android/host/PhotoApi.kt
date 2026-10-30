@@ -38,6 +38,7 @@ interface PanoramaPhotoSource {
 interface PanoramaVideoSource {
     suspend fun current(): PanoramaVideoShare?
     suspend fun open(id: String, offset: Long): InputStream?
+    suspend fun motion(id: String): ByteArray? = null
 }
 
 internal suspend fun copyPanorama(input: InputStream, output: OutputStream, size: Long, allowed: suspend () -> Boolean) = coroutineScope {
@@ -85,6 +86,7 @@ fun Application.photoApi(
     val active = java.util.concurrent.atomic.AtomicInteger(0)
     val panoramaTransfers = Semaphore(3)
     val videoTransfers = Semaphore(3)
+    val motionTransfers = Semaphore(2)
     suspend fun permitted(call: ApplicationCall): Boolean {
         if (authority.authorized(call.request.headers[HttpHeaders.Authorization])) return true
         call.respond(HttpStatusCode.Unauthorized, ApiError("スマホ側で接続を許可してください"))
@@ -179,6 +181,31 @@ fun Application.photoApi(
                             copyPanorama(input, this@respondOutputStream, range.length) {
                                 authority.authorized(authorization) && source.current() == item
                             }
+                        }
+                    }
+                }
+            }
+        }
+        get("/v3/panorama/video/{id}/motion") {
+            if (!permitted(call)) return@get
+            val source = video ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val item = source.current()?.takeIf {
+                it.isValid() && it.id == call.parameters["id"] && it.format != PanoramaVideoFormat.EQUIRECTANGULAR_MP4
+            } ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val bytes = source.motion(item.id)
+                ?.takeIf { it.size in (OsmoMotionCodec.HEADER_BYTES + OsmoMotionCodec.FRAME_BYTES)..OsmoMotionCodec.MAX_BYTES }
+                ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val authorization = call.request.headers[HttpHeaders.Authorization]
+            if (!authority.authorized(authorization) || source.current() != item) {
+                call.respond(HttpStatusCode.NotFound); return@get
+            }
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.response.header(HttpHeaders.ContentLength, bytes.size.toString())
+            call.respondOutputStream(ContentType.Application.OctetStream) {
+                withContext(Dispatchers.IO) {
+                    motionTransfers.withPermit {
+                        copyPanorama(bytes.inputStream(), this@respondOutputStream, bytes.size.toLong()) {
+                            authority.authorized(authorization) && source.current() == item
                         }
                     }
                 }

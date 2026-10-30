@@ -31,7 +31,7 @@ data class HostState(val running: Boolean = false, val port: Int = 0, val addres
 internal fun acceptsPanoramaShare(sessionId: String?, state: HostState) =
     sessionId != null && state.running && state.sessionId == sessionId
 data class SelectedPanoramaPhoto(val share: PanoramaPhotoShare, val uri: Uri)
-data class SelectedPanoramaVideo(val share: PanoramaVideoShare, val uri: Uri)
+data class SelectedPanoramaVideo(val share: PanoramaVideoShare, val uri: Uri, val motionBytes: ByteArray? = null)
 
 object HostRuntime {
     val state = MutableStateFlow(HostState())
@@ -120,6 +120,8 @@ class HostService : Service() {
 
     private fun videoSource() = object : PanoramaVideoSource {
         override suspend fun current() = HostRuntime.panoramaVideo.value?.share
+        override suspend fun motion(id: String): ByteArray? = HostRuntime.panoramaVideo.value
+            ?.takeIf { it.share.id == id }?.motionBytes
         override suspend fun open(id: String, offset: Long): java.io.InputStream? {
             val selected = HostRuntime.panoramaVideo.value?.takeIf { it.share.id == id } ?: return null
             return try {

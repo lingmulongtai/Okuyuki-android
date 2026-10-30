@@ -12,6 +12,7 @@ import com.okuyuki.android.host.acceptsPanoramaShare
 import com.okuyuki.protocol.PanoramaVideoShare
 import com.okuyuki.protocol.PanoramaVideoFormat
 import com.okuyuki.protocol.Protocol
+import com.okuyuki.protocol.OsmoMotionCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,7 +43,11 @@ fun VideoShareButton(uri: Uri, format: PanoramaVideoFormat, enabled: Boolean = t
                                 val calibration = if (format != PanoramaVideoFormat.EQUIRECTANGULAR_MP4) {
                                     OsmoCalibrationReader.read(input.channel, asset.startOffset, length, format)?.toShareCalibration()
                                 } else null
-                                length to calibration
+                                val motion = if (format != PanoramaVideoFormat.EQUIRECTANGULAR_MP4) {
+                                    OsmoMotionReader.read(input.channel, asset.startOffset, length, format)
+                                        ?.takeIf(OsmoMotionCodec::isValid)?.let(OsmoMotionCodec::encode)
+                                } else null
+                                Triple(length, calibration, motion)
                             }
                         }
                     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
@@ -52,7 +57,7 @@ fun VideoShareButton(uri: Uri, format: PanoramaVideoFormat, enabled: Boolean = t
                     shareFailed = true
                 } else {
                     val id = UUID.randomUUID().toString().replace("-", "")
-                    HostRuntime.panoramaVideo.value = SelectedPanoramaVideo(PanoramaVideoShare(id, selected.first, format, selected.second), uri)
+                    HostRuntime.panoramaVideo.value = SelectedPanoramaVideo(PanoramaVideoShare(id, selected.first, format, selected.second), uri, selected.third)
                     shareFailed = false
                 }
             } finally { sharing = false }

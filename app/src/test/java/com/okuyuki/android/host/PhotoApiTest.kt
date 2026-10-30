@@ -116,8 +116,10 @@ class PhotoApiTest {
         val authority = PairingAuthority()
         val bytes = ByteArray(100) { it.toByte() }
         var shared: PanoramaVideoShare? = PanoramaVideoShare("0123456789abcdef0123456789abcdef", bytes.size.toLong())
+        val motion = OsmoMotionCodec.encode(OsmoMotionTrack(listOf(OsmoMotionFrame(0, listOf(0f, 0f, 0f, 1f))), 40000))
         val video = object : PanoramaVideoSource {
             override suspend fun current() = shared
+            override suspend fun motion(id: String) = if (id == shared?.id) motion else null
             override suspend fun open(id: String, offset: Long) =
                 if (id == shared?.id) bytes.copyOfRange(offset.toInt(), bytes.size).inputStream() else null
         }
@@ -147,6 +149,13 @@ class PhotoApiTest {
         val lens = PanoramaLensCalibration(listOf(1200f, 1200f, 1920f, 1920f), List(5) { 0f }, listOf(1f, 0f, 0f, 0f))
         shared = shared!!.copy(format = PanoramaVideoFormat.OSMO_LRF, calibration = PanoramaStereoCalibration(lens, lens))
         assertEquals(HttpStatusCode.Unauthorized, client.get("/v3/panorama/video").status)
+        val motionPath = "/v3/panorama/video/${shared!!.id}/motion"
+        assertEquals(HttpStatusCode.Unauthorized, client.get(motionPath).status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/v3/panorama/video/${"a".repeat(32)}/motion") { bearerAuth(token) }.status)
+        val motionResponse = client.get(motionPath) { bearerAuth(token) }
+        assertEquals(HttpStatusCode.OK, motionResponse.status)
+        assertEquals("no-store", motionResponse.headers[HttpHeaders.CacheControl])
+        assertArrayEquals(motion, motionResponse.readRawBytes())
         assertEquals(HttpStatusCode.NoContent, client.get("/v2/panorama/video") { bearerAuth(token) }.status)
         assertEquals(HttpStatusCode.NotFound, client.get(path) { bearerAuth(token) }.status)
         val modern = client.get("/v3/panorama/video") { bearerAuth(token) }
@@ -155,10 +164,12 @@ class PhotoApiTest {
         assertEquals(HttpStatusCode.PartialContent, rawPart.status)
         assertArrayEquals(bytes.copyOfRange(10, 20), rawPart.readRawBytes())
         shared = null
+        assertEquals(HttpStatusCode.NotFound, client.get(motionPath) { bearerAuth(token) }.status)
         assertEquals(HttpStatusCode.NoContent, client.get("/v2/panorama/video") { bearerAuth(token) }.status)
         assertEquals(HttpStatusCode.NotFound, client.get(path) { bearerAuth(token) }.status)
         authority.setPeers(emptyList())
         assertEquals(HttpStatusCode.Unauthorized, client.get(path) { bearerAuth(token) }.status)
+        assertEquals(HttpStatusCode.Unauthorized, client.get(motionPath) { bearerAuth(token) }.status)
     }
     @Test fun `pairing rejects oversized streamed bodies without a declared length`() = testApplication {
         val source = object : HostPhotoSource {
