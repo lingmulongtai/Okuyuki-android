@@ -14,6 +14,81 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PhotoApiTest {
+    @Test fun `revoked share closes input before writing an in flight chunk`() = kotlinx.coroutines.runBlocking {
+        var allowed = true
+        var closed = false
+        val input = object : java.io.ByteArrayInputStream(ByteArray(100) { 42 }) {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                val count = super.read(buffer, offset, length)
+                allowed = false
+                return count
+            }
+            override fun close() { closed = true; super.close() }
+        }
+        val output = java.io.ByteArrayOutputStream()
+        try {
+            copyPanorama(input, output, 100) { allowed }
+            fail("revoked share must stop")
+        } catch (_: IllegalStateException) { }
+        assertTrue(closed)
+        assertEquals(0, output.size())
+    }
+    @Test fun `cancelled share closes input before writing an in flight chunk`() = kotlinx.coroutines.runBlocking {
+        val job = kotlinx.coroutines.Job()
+        var closed = false
+        val input = object : java.io.ByteArrayInputStream(ByteArray(100) { 42 }) {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                val count = super.read(buffer, offset, length)
+                job.cancel()
+                return count
+            }
+            override fun close() { closed = true; super.close() }
+        }
+        val output = java.io.ByteArrayOutputStream()
+        try {
+            kotlinx.coroutines.withContext(job) { copyPanorama(input, output, 100) { true } }
+            fail("cancelled share must stop")
+        } catch (_: kotlinx.coroutines.CancellationException) { }
+        assertTrue(closed)
+        assertEquals(0, output.size())
+    }
+    @Test fun `panorama photo requires approval and never enters the stereo library`() = testApplication {
+        val authority = PairingAuthority()
+        val bytes = ByteArray(128) { it.toByte() }
+        var shared: PanoramaPhotoShare? = PanoramaPhotoShare("0123456789abcdef0123456789abcdef", bytes.size.toLong())
+        val panorama = object : PanoramaPhotoSource {
+            override suspend fun current() = shared
+            override suspend fun open(id: String) = if (id == shared?.id) bytes.inputStream() else null
+        }
+        val source = object : HostPhotoSource {
+            override suspend fun photos() = emptyList<Photo>()
+            override suspend fun thumbnail(id: String) = null
+            override suspend fun original(id: String): Original? = null
+        }
+        application { photoApi(source, authority, { Hello("phone", "Galaxy", "alpha", 0) }, MutableSharedFlow(), panorama = panorama) }
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/v2/panorama/photo").status)
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/v2/panorama/photo/${shared!!.id}").status)
+        val request = PairRequest("quest", "Quest")
+        val pending = authority.beginOrPoll(request)
+        val peer = authority.prepareApproval(pending.requestId)!!
+        authority.setPeers(listOf(peer))
+        assertTrue(authority.completeApproval(pending.requestId, peer))
+        val token = authority.beginOrPoll(request.copy(requestId = pending.requestId)).token!!
+        val current = client.get("/v2/panorama/photo") { bearerAuth(token) }
+        assertEquals(shared, Protocol.json.decodeFromString<PanoramaPhotoShare>(current.bodyAsText()))
+        val response = client.get("/v2/panorama/photo/${shared!!.id}") { bearerAuth(token) }
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+        assertArrayEquals(bytes, response.readRawBytes())
+        val library = client.get("/v1/library") { bearerAuth(token) }
+        assertTrue(Protocol.json.decodeFromString<LibraryPage>(library.bodyAsText()).items.isEmpty())
+        val oldId = shared!!.id
+        shared = null
+        assertEquals(HttpStatusCode.NoContent, client.get("/v2/panorama/photo") { bearerAuth(token) }.status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/v2/panorama/photo/$oldId") { bearerAuth(token) }.status)
+        authority.setPeers(emptyList())
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/v2/panorama/photo") { bearerAuth(token) }.status)
+    }
     @Test fun `pairing rejects oversized streamed bodies without a declared length`() = testApplication {
         val source = object : HostPhotoSource {
             override suspend fun photos() = emptyList<Photo>()

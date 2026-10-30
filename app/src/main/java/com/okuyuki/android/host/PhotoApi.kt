@@ -16,13 +16,39 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 import io.ktor.utils.io.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 data class Original(val size: Long, val open: () -> InputStream)
 interface HostPhotoSource {
     suspend fun photos(): List<Photo>
     suspend fun thumbnail(id: String): ByteArray?
     suspend fun original(id: String): Original?
+}
+
+/** Only the item explicitly selected for this session is available here. */
+interface PanoramaPhotoSource {
+    suspend fun current(): PanoramaPhotoShare?
+    suspend fun open(id: String): InputStream?
+}
+
+internal suspend fun copyPanorama(input: InputStream, output: OutputStream, size: Long, allowed: suspend () -> Boolean) {
+    input.use {
+        var remaining = size
+        val buffer = ByteArray(64 * 1024)
+        while (remaining > 0) {
+            currentCoroutineContext().ensureActive()
+            check(allowed()) { "Share ended" }
+            val count = it.read(buffer, 0, minOf(remaining, buffer.size.toLong()).toInt())
+            check(count > 0) { "Shared image changed" }
+            currentCoroutineContext().ensureActive()
+            check(allowed()) { "Share ended" }
+            output.write(buffer, 0, count)
+            remaining -= count
+        }
+    }
 }
 
 fun Application.photoApi(
@@ -32,10 +58,12 @@ fun Application.photoApi(
     events: Flow<Event>,
     connected: (Int) -> Unit = {},
     viewing: (String?) -> Unit = {},
+    panorama: PanoramaPhotoSource? = null,
 ) {
     install(ContentNegotiation) { json(Protocol.json) }
     install(WebSockets) { maxFrameSize = 8192; pingPeriodMillis = 15_000; timeoutMillis = 30_000 }
     val active = java.util.concurrent.atomic.AtomicInteger(0)
+    val panoramaTransfers = Semaphore(3)
     suspend fun permitted(call: ApplicationCall): Boolean {
         if (authority.authorized(call.request.headers[HttpHeaders.Authorization])) return true
         call.respond(HttpStatusCode.Unauthorized, ApiError("スマホ側で接続を許可してください"))
@@ -71,6 +99,32 @@ fun Application.photoApi(
             }
             val page = photos.drop(offset).take(Protocol.PAGE_SIZE)
             call.respond(LibraryPage(page, page.lastOrNull()?.id?.takeIf { offset + page.size < photos.size }))
+        }
+        get("/v2/panorama/photo") {
+            if (!permitted(call)) return@get
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            val item = panorama?.current()?.takeIf { it.isValid() }
+            if (item == null) call.respond(HttpStatusCode.NoContent) else call.respond(item)
+        }
+        get("/v2/panorama/photo/{id}") {
+            if (!permitted(call)) return@get
+            val source = panorama ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val item = source.current()?.takeIf { it.isValid() && it.id == call.parameters["id"] }
+                ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val authorization = call.request.headers[HttpHeaders.Authorization]
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.response.header(HttpHeaders.ContentLength, item.sizeBytes.toString())
+            call.respondOutputStream(ContentType.Application.OctetStream) {
+                withContext(Dispatchers.IO) {
+                    panoramaTransfers.withPermit {
+                        check(authority.authorized(authorization) && source.current() == item) { "Share ended" }
+                        val input = source.open(item.id) ?: throw java.io.FileNotFoundException()
+                        copyPanorama(input, this@respondOutputStream, item.sizeBytes) {
+                            authority.authorized(authorization) && source.current() == item
+                        }
+                    }
+                }
+            }
         }
         get("/v1/items/{id}/thumb") {
             if (!permitted(call)) return@get
