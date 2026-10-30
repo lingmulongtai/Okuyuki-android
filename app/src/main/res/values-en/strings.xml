@@ -137,7 +137,7 @@
     <string name="tv_opened_list">TVs with Okuyuki TV opened</string>
     <string name="tv_opened_empty">TVs you open from the Connect tab appear here</string>
     <string name="show_on_tv">Show on TV</string>
-    <string name="detail_tv_hint">Tap Show on TV to show this on the connected TV.</string>
+    <string name="detail_tv_hint">Tap Show on TV to see this on your TV.</string>
     <string name="detail_open_tv_hint">Open Okuyuki TV from the Connect tab to watch this on your TV.</string>
     <string name="tv_unnamed">LG TV (%1$s)</string>
     <string name="tv_none_found">No TVs found. Turn on the TV and connect it to the same Wi-Fi as this phone.</string>
