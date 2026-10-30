@@ -21,11 +21,40 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private sealed interface CalibrationLoad {
+    data object Loading : CalibrationLoad
+    data class Ready(val calibration: OsmoCalibration?) : CalibrationLoad
+}
 
 @Composable
 fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    var calibrationResult by remember(uri) { mutableStateOf<CalibrationLoad>(CalibrationLoad.Loading) }
+    LaunchedEffect(uri) {
+        val calibration = withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { asset ->
+                    asset.createInputStream().use { input ->
+                        val available = input.channel.size() - asset.startOffset
+                        val length = if (asset.declaredLength >= 0) asset.declaredLength else available
+                        OsmoCalibrationReader.read(input.channel, asset.startOffset, length)
+                    }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { null }
+        }
+        calibrationResult = CalibrationLoad.Ready(calibration)
+    }
+    val result = calibrationResult
+    if (result !is CalibrationLoad.Ready) {
+        Dialog(onDismissRequest = onClose) { Surface { CircularProgressIndicator(Modifier.padding(24.dp)) } }
+        return
+    }
+    val calibration = result.calibration
     var failed by remember(uri) { mutableStateOf(false) }
     var playing by remember(uri) { mutableStateOf(false) }
     var position by remember(uri) { mutableLongStateOf(0L) }
@@ -36,7 +65,7 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
             setMediaItem(MediaItem.fromUri(uri)); prepare(); playWhenReady = true
         }
     }
-    val view = remember(player) { DualFisheyeView(context, player) { failed = true; player.pause() } }
+    val view = remember(player, calibration) { DualFisheyeView(context, player, calibration) { failed = true; player.pause() } }
     DisposableEffect(owner, player, view) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) { failed = true }
@@ -75,7 +104,7 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
         Surface(shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.osmo_preview), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(R.string.osmo_approximate), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(if (calibration == null) R.string.osmo_approximate else R.string.osmo_calibrated), style = MaterialTheme.typography.bodySmall)
                 AndroidView(factory = { view }, modifier = Modifier.fillMaxWidth().height(280.dp))
                 if (failed) Text(stringResource(R.string.osmo_error), color = MaterialTheme.colorScheme.error)
                 Slider(value = position.toFloat().coerceIn(0f, duration.coerceAtLeast(1L).toFloat()),
