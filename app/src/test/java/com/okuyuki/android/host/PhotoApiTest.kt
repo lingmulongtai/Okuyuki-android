@@ -8,12 +8,35 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.server.testing.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.async
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import org.junit.Assert.*
 import org.junit.Test
 
 class PhotoApiTest {
+    @Test fun `revocation closes a provider stalled in read`() = kotlinx.coroutines.runBlocking {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val released = java.util.concurrent.CountDownLatch(1)
+        val allowed = java.util.concurrent.atomic.AtomicBoolean(true)
+        val input = object : java.io.InputStream() {
+            override fun read(): Int = error("unexpected single byte read")
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                entered.countDown()
+                check(released.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                return -1
+            }
+            override fun close() { released.countDown() }
+        }
+        val output = java.io.ByteArrayOutputStream()
+        val transfer = async(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { copyPanorama(input, output, 100) { allowed.get() } }
+        }
+        assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        allowed.set(false)
+        assertTrue(kotlinx.coroutines.withTimeout(3000) { transfer.await() }.isFailure)
+        assertEquals(0, output.size())
+    }
     @Test fun `revoked share closes input before writing an in flight chunk`() = kotlinx.coroutines.runBlocking {
         var allowed = true
         var closed = false

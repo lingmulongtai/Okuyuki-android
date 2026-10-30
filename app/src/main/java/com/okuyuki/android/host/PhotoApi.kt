@@ -34,20 +34,33 @@ interface PanoramaPhotoSource {
     suspend fun open(id: String): InputStream?
 }
 
-internal suspend fun copyPanorama(input: InputStream, output: OutputStream, size: Long, allowed: suspend () -> Boolean) {
-    input.use {
+internal suspend fun copyPanorama(input: InputStream, output: OutputStream, size: Long, allowed: suspend () -> Boolean) = coroutineScope {
+    val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+    fun closeInput() { if (closed.compareAndSet(false, true)) runCatching { input.close() } }
+    val watcher = launch(Dispatchers.IO, start = CoroutineStart.UNDISPATCHED) {
+        try {
+            while (isActive) {
+                delay(250)
+                if (!allowed()) break
+            }
+        } finally { closeInput() }
+    }
+    try {
         var remaining = size
         val buffer = ByteArray(64 * 1024)
         while (remaining > 0) {
             currentCoroutineContext().ensureActive()
             check(allowed()) { "Share ended" }
-            val count = it.read(buffer, 0, minOf(remaining, buffer.size.toLong()).toInt())
+            val count = input.read(buffer, 0, minOf(remaining, buffer.size.toLong()).toInt())
             check(count > 0) { "Shared image changed" }
             currentCoroutineContext().ensureActive()
             check(allowed()) { "Share ended" }
             output.write(buffer, 0, count)
             remaining -= count
         }
+    } finally {
+        watcher.cancel()
+        closeInput()
     }
 }
 
