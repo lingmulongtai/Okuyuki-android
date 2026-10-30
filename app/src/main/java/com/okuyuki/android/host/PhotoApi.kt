@@ -80,7 +80,9 @@ fun Application.photoApi(
     viewing: (String?) -> Unit = {},
     panorama: PanoramaPhotoSource? = null,
     video: PanoramaVideoSource? = null,
+    tv: TvHost? = null,
 ) {
+    install(HostHeaders)
     install(ContentNegotiation) { json(Protocol.json) }
     install(WebSockets) { maxFrameSize = 8192; pingPeriodMillis = 15_000; timeoutMillis = 30_000 }
     val active = java.util.concurrent.atomic.AtomicInteger(0)
@@ -93,22 +95,12 @@ fun Application.photoApi(
         return false
     }
     routing {
+        options("{...}") { call.respondPreflight() }
         get("/v1/hello") { call.respond(hello()) }
         post("/v1/pair") {
-            if ((call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 0) > 4096) {
-                call.respond(HttpStatusCode.PayloadTooLarge); return@post
-            }
             try {
-                val input = call.receiveChannel()
-                val bytes = ByteArrayOutputStream()
-                val buffer = ByteArray(1024)
-                while (true) {
-                    val count = input.readAvailable(buffer)
-                    if (count < 0) break
-                    if (bytes.size() + count > 4096) { call.respond(HttpStatusCode.PayloadTooLarge); return@post }
-                    bytes.write(buffer, 0, count)
-                }
-                call.respond(authority.beginOrPoll(Protocol.json.decodeFromString<PairRequest>(bytes.toString("UTF-8"))))
+                val text = call.receiveSmallText() ?: return@post
+                call.respond(authority.beginOrPoll(Protocol.json.decodeFromString<PairRequest>(text)))
             }
             catch (_: Exception) { call.respond(HttpStatusCode.BadRequest, ApiError("接続要求を確認できませんでした")) }
         }
@@ -222,34 +214,7 @@ fun Application.photoApi(
             val original = source.original(call.parameters["id"] ?: "")
             if (original == null) { call.respond(HttpStatusCode.NotFound); return@get }
             if (original.size !in 1..Protocol.MAX_ORIGINAL_BYTES) { call.respond(HttpStatusCode.PayloadTooLarge); return@get }
-            val header = call.request.headers[HttpHeaders.Range]
-            val range = ByteRange.parse(header, original.size)
-            call.response.header(HttpHeaders.AcceptRanges, "bytes")
-            if (range == null) {
-                call.response.header(HttpHeaders.ContentRange, "bytes */${original.size}")
-                call.respond(HttpStatusCode.RequestedRangeNotSatisfiable); return@get
-            }
-            if (header != null) call.response.header(HttpHeaders.ContentRange, "bytes ${range.first}-${range.last}/${original.size}")
-            call.response.header(HttpHeaders.ContentLength, range.length.toString())
-            call.respondOutputStream(ContentType.parse("image/heic"), if (header == null) HttpStatusCode.OK else HttpStatusCode.PartialContent) {
-                withContext(Dispatchers.IO) {
-                    original.open().use { input ->
-                        var skip = range.first
-                        while (skip > 0) {
-                            val skipped = input.skip(skip)
-                            if (skipped == 0L) { check(input.read() != -1); skip-- } else skip -= skipped
-                        }
-                        var remaining = range.length
-                        val buffer = ByteArray(64 * 1024)
-                        while (remaining > 0) {
-                            ensureActive()
-                            val count = input.read(buffer, 0, minOf(remaining, buffer.size.toLong()).toInt())
-                            check(count > 0) { "Original changed while reading" }
-                            write(buffer, 0, count); remaining -= count
-                        }
-                    }
-                }
-            }
+            call.respondRanged(original.size, ContentType.parse("image/heic"), original.open)
         }
         webSocket("/v1/events") {
             val authorization = call.request.headers[HttpHeaders.Authorization]
@@ -266,5 +231,6 @@ fun Application.photoApi(
                 }
             } finally { sender.cancel(); connected(active.decrementAndGet()) }
         }
+        if (tv != null) tvApi(tv)
     }
 }

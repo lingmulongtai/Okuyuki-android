@@ -1,7 +1,6 @@
 package com.okuyuki.android.host
 
 import android.app.*
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.nsd.NsdManager
@@ -11,7 +10,7 @@ import android.net.Uri
 import android.util.Size
 import androidx.core.app.NotificationCompat
 import com.okuyuki.android.*
-import com.okuyuki.android.library.PairedPeer
+import com.okuyuki.android.tv.AndroidTvMedia
 import com.okuyuki.protocol.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
@@ -26,8 +25,10 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.UUID
 
+/** [clients] counts Quest connections and [tvClients] TV connections. */
 data class HostState(val running: Boolean = false, val port: Int = 0, val addresses: List<String> = emptyList(),
-    val clients: Int = 0, val viewingId: String? = null, val error: Int? = null, val sessionId: String? = null)
+    val clients: Int = 0, val tvClients: Int = 0, val viewingId: String? = null, val error: Int? = null,
+    val sessionId: String? = null, val deviceId: String = "")
 internal fun acceptsPanoramaShare(sessionId: String?, state: HostState) =
     sessionId != null && state.running && state.sessionId == sessionId
 data class SelectedPanoramaPhoto(val share: PanoramaPhotoShare, val uri: Uri)
@@ -39,14 +40,20 @@ object HostRuntime {
     val pairingMutex = Mutex()
     val panoramaPhoto = MutableStateFlow<SelectedPanoramaPhoto?>(null)
     val panoramaVideo = MutableStateFlow<SelectedPanoramaVideo?>(null)
+    /** Events for TVs: library changes, finished stills and videos, photos picked on the phone, shutdown. */
+    val tvEvents = MutableSharedFlow<Event>(extraBufferCapacity = 32)
+
+    /** Shows a photo or video on every connected TV. */
+    fun showOnTv(id: Long) = tvEvents.tryEmit(Event("show", id.toString()))
 }
 
 class HostService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val app get() = application as OkuyukiApplication
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
+    private var tvMedia: AndroidTvMedia? = null
     private var registration: NsdManager.RegistrationListener? = null
-    private val events = MutableSharedFlow<Event>(extraBufferCapacity = 8)
+    private val questEvents = MutableSharedFlow<Event>(extraBufferCapacity = 8)
     private var lastClientAt = System.currentTimeMillis()
     private var announced = false
     @Volatile private var destroyed = false
@@ -75,27 +82,38 @@ class HostService : Service() {
                 val preferences = getSharedPreferences("host", MODE_PRIVATE)
                 val deviceId = preferences.getString("deviceId", null) ?: UUID.randomUUID().toString().also { preferences.edit().putString("deviceId", it).apply() }
                 val source = androidSource()
+                val media = AndroidTvMedia(applicationContext, app.library, HostRuntime.tvEvents, scope).also { tvMedia = it }
+                val tv = TvHost(HostRuntime.authority, media, HostRuntime.tvEvents,
+                    connected = { count ->
+                        lastClientAt = System.currentTimeMillis()
+                        HostRuntime.state.update { it.copy(tvClients = count, viewingId = if (count == 0 && it.clients == 0) null else it.viewingId) }
+                    }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } })
                 HostRuntime.pairingMutex.withLock { refreshPeers() }
-                val engine = embeddedServer(CIO, host = "0.0.0.0", port = 0) {
-                    photoApi(source, HostRuntime.authority,
-                        { Hello(deviceId, android.os.Build.MODEL, BuildConfig.VERSION_NAME, source.photos().size) }, events,
-                        connected = { count ->
-                            lastClientAt = System.currentTimeMillis()
-                            HostRuntime.state.update { it.copy(clients = count, viewingId = if (count == 0) null else it.viewingId) }
-                        }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } },
-                        panorama = panoramaSource(), video = videoSource())
+                val engine = withContext(Dispatchers.IO) {
+                    // A fixed port lets a TV come back to the address it saved; any free port is the fallback.
+                    startHost(listOf(Protocol.PORT, 0)) {
+                        photoApi(source, HostRuntime.authority,
+                            { Hello(deviceId, android.os.Build.MODEL, BuildConfig.VERSION_NAME, source.photos().size, protocolVersions = Protocol.VERSIONS) },
+                            questEvents,
+                            connected = { count ->
+                                lastClientAt = System.currentTimeMillis()
+                                HostRuntime.state.update { it.copy(clients = count, viewingId = if (count == 0 && it.tvClients == 0) null else it.viewingId) }
+                            }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } },
+                            panorama = panoramaSource(), video = videoSource(), tv = tv)
+                    }
                 }
                 server = engine
-                withContext(Dispatchers.IO) { engine.start(wait = false) }
                 val port = engine.engine.resolvedConnectors().first().port
-                HostRuntime.state.update { it.copy(port = port, addresses = addresses().map { address -> "$address:$port" }) }
+                HostRuntime.state.update { it.copy(port = port, deviceId = deviceId, addresses = addresses().map { address -> "$address:$port" }) }
                 advertise(port)
-                launch { app.library.photos.drop(1).collect { events.emit(Event("library_changed")) } }
-                launch { HostRuntime.panoramaPhoto.collect { events.emit(Event("panorama_changed")) } }
-                launch { HostRuntime.panoramaVideo.collect { events.emit(Event("panorama_video_changed")) } }
+                launch { app.library.photos.drop(1).distinctUntilChanged().collect { questEvents.emit(Event("library_changed")) } }
+                launch { app.library.changes.collect { HostRuntime.tvEvents.emit(Event("library_changed")) } }
+                launch { HostRuntime.panoramaPhoto.collect { questEvents.emit(Event("panorama_changed")) } }
+                launch { HostRuntime.panoramaVideo.collect { questEvents.emit(Event("panorama_video_changed")) } }
                 while (isActive) {
                     delay(30_000)
-                    if (HostRuntime.state.value.clients > 0) lastClientAt = System.currentTimeMillis()
+                    val state = HostRuntime.state.value
+                    if (state.clients > 0 || state.tvClients > 0) lastClientAt = System.currentTimeMillis()
                     if (System.currentTimeMillis() - lastClientAt > 10 * 60_000) { stopSelf(); break }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -142,12 +160,13 @@ class HostService : Service() {
     private fun androidSource(): HostPhotoSource {
         val permits = Semaphore(3)
         return object : HostPhotoSource {
-            override suspend fun photos(): List<Photo> = if (!app.library.hasPermission()) emptyList() else
-                app.database.dao().all().filter { it.stereo }.sortedWith(compareByDescending<com.okuyuki.android.library.IndexedPhoto> { it.takenAt }.thenByDescending { it.id }).map { it.photo() }
+            override suspend fun photos(): List<Photo> = if (!app.library.hasImagePermission()) emptyList() else
+                app.database.dao().stereoPhotos().filter { app.library.canRead(it) }.map { it.photo() }
             override suspend fun thumbnail(id: String): ByteArray? = permits.withPermit {
                 withContext(Dispatchers.IO) {
-                    if (!app.library.hasPermission()) return@withContext null
+                    if (!app.library.hasImagePermission()) return@withContext null
                     val photo = id.toLongOrNull()?.let { app.database.dao().find(it) } ?: return@withContext null
+                    if (!app.library.canRead(photo)) return@withContext null
                     runCatching {
                         val bitmap = contentResolver.loadThumbnail(app.library.uri(photo.id), Size(512, 512), null)
                         try { ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray() }
@@ -156,8 +175,9 @@ class HostService : Service() {
                 }
             }
             override suspend fun original(id: String): Original? {
-                if (!app.library.hasPermission()) return null
+                if (!app.library.hasImagePermission()) return null
                 val photo = id.toLongOrNull()?.let { app.database.dao().find(it) } ?: return null
+                if (!app.library.canRead(photo)) return null
                 return Original(photo.sizeBytes) { contentResolver.openInputStream(app.library.uri(photo.id)) ?: throw java.io.FileNotFoundException() }
             }
         }
@@ -206,16 +226,23 @@ class HostService : Service() {
         destroyed = true
         HostRuntime.panoramaPhoto.value = null
         HostRuntime.panoramaVideo.value = null
+        // TVs say "turned off on the phone" instead of a lost connection; the grace period lets it go out.
+        HostRuntime.tvEvents.tryEmit(Event("session_closed"))
         scope.cancel()
         if (announced) registration?.let { runCatching { getSystemService(NsdManager::class.java).unregisterService(it) } }
-        server?.stop(0, 300)
+        server?.stop(300, 600)
+        tvMedia?.close()
         HostRuntime.authority.clear()
         HostRuntime.state.update { HostState(error = it.error) }
         super.onDestroy()
     }
     private suspend fun refreshPeers() {
-        HostRuntime.authority.setPeers(app.database.dao().peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
+        HostRuntime.authority.setPeers(app.database.dao().peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash, it.kind) })
     }
     private fun addresses(): List<String> = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
         .flatMap { it.inetAddresses.toList() }.filterIsInstance<Inet4Address>().filter { it.isSiteLocalAddress }.map { it.hostAddress ?: "" }
+
+    private companion object {
+        const val WAITING = "Quest・テレビを待っています"
+    }
 }
