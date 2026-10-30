@@ -29,11 +29,11 @@
     <string name="empty_body">Add 3D photos taken on Galaxy to your gallery, then refresh.</string>
     <string name="change_selection">Change selected photos</string>
     <string name="viewing_quest">Viewing on Quest</string>
-    <string name="connect_devices">Connect Quest or TV</string>
+    <string name="connect_devices">Connect to Quest or TV</string>
     <string name="same_wifi">Wait for a Quest or TV on the same Wi-Fi network</string>
     <string name="grant_first">Allow 3D photo access</string>
     <string name="quest_connected">Quest connected · Choose a photo on Quest</string>
-    <string name="quest_waiting">Open Okuyuki on your Quest or TV and select this phone</string>
+    <string name="quest_waiting">Open Okuyuki on your Quest or TV and select your phone</string>
     <string name="quest_off">Turn on to view photos on Quest or TV.</string>
     <string name="manual_title">If your phone is not found</string>
     <string name="manual_body">Enter the following address on your Quest or TV.</string>
@@ -62,7 +62,7 @@
     <string name="status_checking">Checking photo access…</string>
     <string name="status_permission">Allow photo access</string>
     <string name="status_scanning">Checking photos and videos…</string>
-    <string name="status_ready">Photos and videos from your gallery are ready</string>
+    <string name="status_ready">Loaded photos and videos from your gallery</string>
     <string name="status_limited">Showing selected photos and videos only · Change photo access to see more</string>
     <string name="status_error">Could not read photos. Refresh to try again.</string>
     <string name="language">Language</string>
@@ -88,7 +88,7 @@
     <string name="panorama_photo_error">Could not open the photo. Choose a stitched 2:1 360° photo.</string>
     <string name="panorama_share">Share with Quest</string>
     <string name="panorama_video_preparing">Preparing video…</string>
-    <string name="panorama_share_requires_host">Turn on waiting in the Quest tab to share.</string>
+    <string name="panorama_share_requires_host">Turn on waiting in the Connect tab to share.</string>
     <string name="panorama_shared">Sharing a 360° photo. Open it on your Quest.</string>
     <string name="panorama_share_error">Could not share. Check that waiting is on and the photo is 64 MB or smaller.</string>
     <string name="panorama_stop_share">Stop sharing 360° photo</string>
@@ -142,7 +142,7 @@
     <string name="tv_unnamed">LG TV (%1$s)</string>
     <string name="tv_none_found">No TVs found. Turn on the TV and connect it to the same Wi-Fi as this phone.</string>
     <string name="tv_search_failed">Could not search for TVs. Check Wi-Fi.</string>
-    <string name="tv_turn_on_first">Turn on Connect Quest or TV first.</string>
+    <string name="tv_turn_on_first">Turn on Connect to Quest or TV first.</string>
     <string name="tv_connecting">Connecting to %1$s…</string>
     <string name="tv_allow_on_tv">Choose Allow on the TV screen.</string>
     <string name="tv_opened">Opened Okuyuki TV on %1$s</string>

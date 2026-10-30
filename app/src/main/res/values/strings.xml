@@ -30,10 +30,10 @@
     <string name="change_selection">許可する写真を変更</string>
     <string name="viewing_quest">Questで表示中</string>
     <string name="connect_devices">Quest・テレビとつなぐ</string>
-    <string name="same_wifi">同じWi-FiのQuestやテレビを待ちます</string>
+    <string name="same_wifi">同じWi-FiにいるQuestやテレビを待ちます</string>
     <string name="grant_first">3D写真へのアクセスを許可</string>
     <string name="quest_connected">Quest 接続中 · 写真をQuestで選んでください</string>
-    <string name="quest_waiting">QuestやテレビでOkuyukiを開き、このスマホを選んでください</string>
+    <string name="quest_waiting">QuestやテレビでOkuyukiを開き、スマホを選んでください</string>
     <string name="quest_off">オンにするとQuestやテレビから写真を見られます。</string>
     <string name="manual_title">自動で見つからない場合</string>
     <string name="manual_body">Questやテレビで以下のアドレスを入力してください。</string>
@@ -62,7 +62,7 @@
     <string name="status_checking">写真へのアクセスを確認しています…</string>
     <string name="status_permission">写真へのアクセスを許可してください</string>
     <string name="status_scanning">写真と動画を確認しています…</string>
-    <string name="status_ready">ギャラリーの写真と動画を読み取りました</string>
+    <string name="status_ready">ギャラリーの写真と動画を読み込みました</string>
     <string name="status_limited">許可した写真と動画のみ表示中 · すべて見るには写真の許可を変更</string>
     <string name="status_error">写真を読み取れませんでした。もう一度更新してください</string>
     <string name="language">言語</string>
@@ -88,7 +88,7 @@
     <string name="panorama_photo_error">写真を開けませんでした。結合済みの横2:縦1の360°写真を選んでください。</string>
     <string name="panorama_share">Questに共有</string>
     <string name="panorama_video_preparing">動画を準備中…</string>
-    <string name="panorama_share_requires_host">Questタブで接続待機をオンにすると共有できます。</string>
+    <string name="panorama_share_requires_host">「つなぐ」タブで接続待機をオンにすると共有できます。</string>
     <string name="panorama_shared">360°写真を共有中です。Questの一覧で開いてください。</string>
     <string name="panorama_share_error">共有できませんでした。接続待機と写真のサイズ（64 MB以下）を確認してください。</string>
     <string name="panorama_stop_share">360°写真の共有を終了</string>
