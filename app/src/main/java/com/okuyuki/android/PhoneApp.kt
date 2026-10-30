@@ -225,7 +225,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             val selectedLanguage = localeManager.applicationLocales[0]?.language ?: ""
                             Column(Modifier.selectableGroup()) {
                                 listOf("" to R.string.language_system, "ja" to R.string.language_japanese, "en" to R.string.language_english).forEach { (tag, label) ->
-                                    Row(Modifier.fillMaxWidth().selectable(selected = selectedLanguage == tag, role = Role.RadioButton, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }), verticalAlignment = Alignment.CenterVertically) {
+                                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = selectedLanguage == tag, role = Role.RadioButton, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }), verticalAlignment = Alignment.CenterVertically) {
                                         RadioButton(selected = selectedLanguage == tag, onClick = null)
                                         Text(stringResource(label))
                                     }
@@ -237,7 +237,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             Column(Modifier.selectableGroup()) {
                                 listOf("system" to R.string.theme_system, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEach { (value, label) ->
                                     val select = { theme = value; appearance.edit().putString("theme", value).apply() }
-                                    Row(Modifier.fillMaxWidth().selectable(selected = theme == value, role = Role.RadioButton, onClick = select), verticalAlignment = Alignment.CenterVertically) {
+                                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = theme == value, role = Role.RadioButton, onClick = select), verticalAlignment = Alignment.CenterVertically) {
                                         RadioButton(selected = theme == value, onClick = null)
                                         Text(stringResource(label))
                                     }
