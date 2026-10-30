@@ -144,7 +144,9 @@ class PhotoApiTest {
         assertArrayEquals(bytes.copyOfRange(10, 20), part.readRawBytes())
         assertEquals(HttpStatusCode.RequestedRangeNotSatisfiable,
             client.get(path) { bearerAuth(token); header(HttpHeaders.Range, "bytes=100-") }.status)
-        shared = shared!!.copy(format = PanoramaVideoFormat.OSMO_LRF)
+        val lens = PanoramaLensCalibration(listOf(1200f, 1200f, 1920f, 1920f), List(5) { 0f }, listOf(1f, 0f, 0f, 0f))
+        shared = shared!!.copy(format = PanoramaVideoFormat.OSMO_LRF, calibration = PanoramaStereoCalibration(lens, lens))
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/v3/panorama/video").status)
         assertEquals(HttpStatusCode.NoContent, client.get("/v2/panorama/video") { bearerAuth(token) }.status)
         assertEquals(HttpStatusCode.NotFound, client.get(path) { bearerAuth(token) }.status)
         val modern = client.get("/v3/panorama/video") { bearerAuth(token) }

@@ -30,23 +30,29 @@ fun VideoShareButton(uri: Uri, format: PanoramaVideoFormat, enabled: Boolean = t
         sharing = true
         scope.launch {
             try {
-                val size = withContext(Dispatchers.IO) {
+                val selected = withContext(Dispatchers.IO) {
                     try {
                         val length = context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use {
                             if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else null
                         }
+                        if (length == null || length !in 1..Protocol.MAX_PANORAMA_VIDEO_BYTES) return@withContext null
                         context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { asset ->
-                            asset.createInputStream().use { it.channel.position(asset.startOffset) }
-                        } ?: return@withContext null
-                        length
+                            asset.createInputStream().use { input ->
+                                input.channel.position(asset.startOffset)
+                                val calibration = if (format != PanoramaVideoFormat.EQUIRECTANGULAR_MP4) {
+                                    OsmoCalibrationReader.read(input.channel, asset.startOffset, length, format)?.toShareCalibration()
+                                } else null
+                                length to calibration
+                            }
+                        }
                     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
                     catch (_: Exception) { null }
                 }
-                if (size == null || size !in 1..Protocol.MAX_PANORAMA_VIDEO_BYTES || !acceptsPanoramaShare(sessionId, HostRuntime.state.value)) {
+                if (selected == null || !acceptsPanoramaShare(sessionId, HostRuntime.state.value)) {
                     shareFailed = true
                 } else {
                     val id = UUID.randomUUID().toString().replace("-", "")
-                    HostRuntime.panoramaVideo.value = SelectedPanoramaVideo(PanoramaVideoShare(id, size, format), uri)
+                    HostRuntime.panoramaVideo.value = SelectedPanoramaVideo(PanoramaVideoShare(id, selected.first, format, selected.second), uri)
                     shareFailed = false
                 }
             } finally { sharing = false }
