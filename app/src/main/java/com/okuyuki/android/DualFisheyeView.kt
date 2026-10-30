@@ -8,13 +8,22 @@ import android.opengl.GLSurfaceView
 import android.view.MotionEvent
 import android.view.Surface
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
-/** Approximate dual-fisheye preview. Camera calibration and stabilization are not applied. */
-internal class DualFisheyeView(context: Context, private val player: ExoPlayer, private val calibration: OsmoCalibration? = null, private val onError: () -> Unit) : GLSurfaceView(context) {
+/** Camera-calibrated preview with optional experimental rotational smoothing. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal class DualFisheyeView(context: Context, private val player: ExoPlayer, private val calibration: OsmoCalibration? = null, private val stabilization: OsmoStabilization? = null, private val onStabilizationUnavailable: () -> Unit = {}, private val onError: () -> Unit) : GLSurfaceView(context) {
+    private val timestamps = FrameTimestampMap()
+    private val clockLock = Any()
+    private val metadataListener = VideoFrameMetadataListener { presentationUs, releaseNs, _, _ ->
+        synchronized(clockLock) { timestamps.record(releaseNs, presentationUs) }
+    }
+    @Volatile private var stabilizationEnabled = false
+    @Volatile private var clockResetPending = false
     private val renderer = FisheyeRenderer()
     private var lastX = 0f
     private var lastY = 0f
@@ -23,6 +32,7 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
     private var texture: SurfaceTexture? = null
 
     init {
+        if (stabilization != null) player.setVideoFrameMetadataListener(metadataListener)
         setEGLContextClientVersion(2)
         preserveEGLContextOnPause = true
         setRenderer(renderer)
@@ -47,9 +57,13 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
 
     override fun performClick(): Boolean { super.performClick(); return true }
 
+    fun setStabilizationEnabled(enabled: Boolean) { stabilizationEnabled = enabled; requestRender() }
+    fun resetStabilizationClock() { synchronized(clockLock) { clockResetPending = true; timestamps.clear() } }
+
     /** Call on the UI thread after pausing the GL thread. */
     fun close() {
         closed = true
+        if (stabilization != null) player.clearVideoFrameMetadataListener(metadataListener)
         player.clearVideoSurface()
         surface?.release(); surface = null
         texture?.release(); texture = null
@@ -66,6 +80,7 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
         private var currentTexture: SurfaceTexture? = null
         private var aspect = 1f
         private val textureMatrix = FloatArray(16)
+        private val frameMatcher = stabilization?.let { FrameCorrectionMatcher(timestamps, it) }
 
         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
             try {
@@ -76,6 +91,7 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
         }
 
         private fun initializeSurface() {
+            synchronized(clockLock) { timestamps.clear(); frameMatcher?.resetSurface(); clockResetPending = false }
             check(GLES20.glGetString(GLES20.GL_EXTENSIONS)?.split(' ')?.contains("GL_OES_EGL_image_external") == true)
             program = linkProgram(VERTEX_SHADER, FRAGMENT_SHADER)
             val ids = IntArray(1)
@@ -109,6 +125,14 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
         override fun onDrawFrame(gl: GL10?) {
             val frame = currentTexture ?: return
             try { frame.updateTexImage(); frame.getTransformMatrix(textureMatrix) } catch (_: RuntimeException) { return }
+            val matched = synchronized(clockLock) {
+                if (clockResetPending) { frameMatcher?.beginSeek(); clockResetPending = false }
+                frameMatcher?.frame(frame.timestamp)
+            }
+            if (stabilizationEnabled && matched?.waiting != true && matched?.correction == null) {
+                stabilizationEnabled = false
+                post { if (!closed && !stabilizationEnabled) onStabilizationUnavailable() }
+            }
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             GLES20.glUseProgram(program)
             val position = GLES20.glGetAttribLocation(program, "position")
@@ -117,6 +141,8 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
             GLES20.glUniform1f(GLES20.glGetUniformLocation(program, "aspect"), aspect)
             GLES20.glUniform1f(GLES20.glGetUniformLocation(program, "yaw"), yaw)
             GLES20.glUniform1f(GLES20.glGetUniformLocation(program, "pitch"), pitch)
+            val correction = if (stabilizationEnabled) matched?.correction else null
+            GLES20.glUniform4fv(GLES20.glGetUniformLocation(program, "motion"), 1, correction ?: floatArrayOf(1f, 0f, 0f, 0f), 0)
             GLES20.glUniform1f(GLES20.glGetUniformLocation(program, "calibrated"), if (calibration == null) 0f else 1f)
             calibration?.let { value ->
                 fun setLens(prefix: String, lens: OsmoLens) {
@@ -145,7 +171,11 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
         """
         private const val FRAGMENT_SHADER = """
             #extension GL_OES_EGL_image_external : require
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+            precision highp float;
+            #else
             precision mediump float;
+            #endif
             varying vec2 screen;
             uniform samplerExternalOES video;
             uniform mat4 texMatrix;
@@ -153,6 +183,7 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
             uniform float yaw;
             uniform float pitch;
             uniform float calibrated;
+            uniform vec4 motion;
             uniform vec4 leftIntrinsics, rightIntrinsics;
             uniform vec4 leftDistortion, rightDistortion;
             uniform float leftK5, rightK5;
@@ -166,13 +197,14 @@ internal class DualFisheyeView(context: Context, private val player: ExoPlayer, 
                 ray = vec3(ray.x, cp * ray.y + sp * ray.z, -sp * ray.y + cp * ray.z);
                 float cy = cos(yaw), sy = sin(yaw);
                 ray = vec3(cy * ray.x + sy * ray.z, ray.y, -sy * ray.x + cy * ray.z);
-                bool back = ray.z < 0.0;
+                vec3 body = rotateQuaternion(motion, vec3(-ray.x, -ray.z, ray.y));
+                ray = vec3(-body.x, body.z, -body.y);
+                bool back = body.y > 0.0;
                 if (calibrated > 0.5) {
                     vec4 intr = back ? rightIntrinsics : leftIntrinsics;
                     vec4 k = back ? rightDistortion : leftDistortion;
                     float k5 = back ? rightK5 : leftK5;
                     vec4 q = back ? rightQuaternion : leftQuaternion;
-                    vec3 body = vec3(-ray.x, -ray.z, ray.y);
                     vec3 lens = rotateQuaternion(q, body);
                     float xy = length(lens.xy);
                     float theta = atan(xy, lens.z);

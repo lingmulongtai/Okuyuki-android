@@ -79,7 +79,7 @@
     <string name="panorama_video_hint">Choose a stitched 360° photo or MP4 video, or an Osmo 360 LRF. Direct OSV preview is experimental.</string>
     <string name="panorama_video_error">Could not play this video. Choose a supported stitched MP4.</string>
     <string name="osmo_preview">Preview Osmo 360 LRF</string>
-    <string name="osmo_approximate">Experimental approximation. Drag to look around. Lens calibration and stabilization are not applied, so seams may be misaligned.</string>
+    <string name="osmo_approximate">Experimental approximation. Drag to look around. Lens calibration is not applied, so seams may be misaligned.</string>
     <string name="osmo_error">Could not play this file. Choose an Osmo 360 LRF file.</string>
     <string name="osmo_choose_error">Choose an LRF or OSV file.</string>
     <string name="play">Play</string>
@@ -92,6 +92,9 @@
     <string name="osv_preview">Preview Osmo 360 OSV</string>
     <string name="osv_experimental">Experimental direct playback uses two 4K video streams. Misalignment and seams may occur. Lens and stabilization corrections are not available.</string>
     <string name="osv_error">Could not play this OSV. The device may not support two simultaneous 4K HEVC streams.</string>
-    <string name="osmo_calibrated">Experimental lens-calibrated preview. Alignment may vary by recording mode. Stabilization is not applied.</string>
+    <string name="osmo_calibrated">Experimental lens-calibrated preview. Alignment may vary by recording mode.</string>
     <string name="osv_calibrated">Experimental lens calibration applied; stabilization is not available.</string>
+    <string name="osmo_stabilization_experimental">Stabilization (experimental)</string>
+    <string name="osmo_stabilization_note">Rotation is smoothed using matched frame timestamps. Stabilization switches off if a frame cannot be matched.</string>
+    <string name="osmo_stabilization_unavailable">Stabilization was switched off because the frame and attitude timestamps could not be matched.</string>
 </resources>

@@ -79,7 +79,7 @@
     <string name="panorama_video_hint">結合済みの360°写真・MP4動画、またはOsmo 360のLRFを選んでください。OSVは実験的な直接プレビューです。</string>
     <string name="panorama_video_error">この動画を再生できませんでした。対応する結合済みMP4を選んでください。</string>
     <string name="osmo_preview">Osmo 360 LRFをプレビュー</string>
-    <string name="osmo_approximate">実験的な簡易表示です。ドラッグして見回せます。レンズ補正や手ぶれ補正は適用されず、つなぎ目にずれが出ます。</string>
+    <string name="osmo_approximate">実験的な簡易表示です。ドラッグして見回せます。レンズ補正は適用されず、つなぎ目にずれが出ます。</string>
     <string name="osmo_error">このファイルを再生できませんでした。Osmo 360のLRFファイルを選んでください。</string>
     <string name="osmo_choose_error">LRFまたはOSVファイルを選んでください。</string>
     <string name="play">再生</string>
@@ -92,6 +92,9 @@
     <string name="osv_preview">Osmo 360 OSVをプレビュー</string>
     <string name="osv_experimental">実験的な直接再生です。2つの4K映像を使用し、映像のずれやつなぎ目が生じます。レンズ・手ぶれ補正は未対応です。</string>
     <string name="osv_error">OSVを再生できませんでした。端末が2つの4K HEVC映像を同時に再生できない場合があります。</string>
-    <string name="osmo_calibrated">カメラのレンズ校正値を使う実験的な表示です。撮影モードやつなぎ目にずれが出る場合があります。手ぶれ補正は未対応です。</string>
+    <string name="osmo_calibrated">カメラのレンズ校正値を使う実験的な表示です。撮影モードやつなぎ目にずれが出る場合があります。</string>
     <string name="osv_calibrated">レンズ校正を適用中（実験的）。手ぶれ補正は未対応です。</string>
+    <string name="osmo_stabilization_experimental">手ぶれ補正（実験的）</string>
+    <string name="osmo_stabilization_note">姿勢と映像の時刻を照合して回転を平滑化します。照合できない場合は補正をオフにします。</string>
+    <string name="osmo_stabilization_unavailable">フレームと姿勢の時刻を照合できなかったため、手ぶれ補正をオフにしました。</string>
 </resources>

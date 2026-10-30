@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
 
 private sealed interface CalibrationLoad {
     data object Loading : CalibrationLoad
-    data class Ready(val calibration: OsmoCalibration?) : CalibrationLoad
+    data class Ready(val calibration: OsmoCalibration?, val stabilization: OsmoStabilization?) : CalibrationLoad
 }
 
 @Composable
@@ -35,19 +35,21 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
     val owner = LocalLifecycleOwner.current
     var calibrationResult by remember(uri) { mutableStateOf<CalibrationLoad>(CalibrationLoad.Loading) }
     LaunchedEffect(uri) {
-        val calibration = withContext(Dispatchers.IO) {
+        val result = withContext(Dispatchers.IO) {
             try {
                 context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { asset ->
                     asset.createInputStream().use { input ->
                         val available = input.channel.size() - asset.startOffset
                         val length = if (asset.declaredLength >= 0) asset.declaredLength else available
-                        OsmoCalibrationReader.read(input.channel, asset.startOffset, length)
+                        val calibration = OsmoCalibrationReader.read(input.channel, asset.startOffset, length)
+                        val motion = OsmoMotionReader.read(input.channel, asset.startOffset, length, com.okuyuki.protocol.PanoramaVideoFormat.OSMO_LRF)
+                        calibration to motion?.let(::OsmoStabilization)
                     }
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) { null }
         }
-        calibrationResult = CalibrationLoad.Ready(calibration)
+        calibrationResult = CalibrationLoad.Ready(result?.first, result?.second)
     }
     val result = calibrationResult
     if (result !is CalibrationLoad.Ready) {
@@ -55,6 +57,9 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
         return
     }
     val calibration = result.calibration
+    val stabilization = result.stabilization
+    var stabilizationEnabled by remember(uri) { mutableStateOf(false) }
+    var stabilizationUnavailable by remember(uri) { mutableStateOf(false) }
     var failed by remember(uri) { mutableStateOf(false) }
     var playing by remember(uri) { mutableStateOf(false) }
     var position by remember(uri) { mutableLongStateOf(0L) }
@@ -65,7 +70,8 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
             setMediaItem(MediaItem.fromUri(uri)); prepare(); playWhenReady = true
         }
     }
-    val view = remember(player, calibration) { DualFisheyeView(context, player, calibration) { failed = true; player.pause() } }
+    val view = remember(player, calibration, stabilization) { DualFisheyeView(context, player, calibration, stabilization,
+        onStabilizationUnavailable = { stabilizationEnabled = false; stabilizationUnavailable = true }) { failed = true; player.pause() } }
     DisposableEffect(owner, player, view) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) { failed = true }
@@ -105,11 +111,19 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.osmo_preview), style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(if (calibration == null) R.string.osmo_approximate else R.string.osmo_calibrated), style = MaterialTheme.typography.bodySmall)
+                if (stabilization != null) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Checkbox(checked = stabilizationEnabled, onCheckedChange = { stabilizationEnabled = it; stabilizationUnavailable = false; view.setStabilizationEnabled(it) })
+                        Text(stringResource(R.string.osmo_stabilization_experimental))
+                    }
+                    if (stabilizationEnabled) Text(stringResource(R.string.osmo_stabilization_note), style = MaterialTheme.typography.bodySmall)
+                    if (stabilizationUnavailable) Text(stringResource(R.string.osmo_stabilization_unavailable), style = MaterialTheme.typography.bodySmall)
+                }
                 AndroidView(factory = { view }, modifier = Modifier.fillMaxWidth().height(280.dp))
                 if (failed) Text(stringResource(R.string.osmo_error), color = MaterialTheme.colorScheme.error)
                 Slider(value = position.toFloat().coerceIn(0f, duration.coerceAtLeast(1L).toFloat()),
                     onValueChange = { seeking = true; position = it.toLong() },
-                    onValueChangeFinished = { player.seekTo(position); seeking = false },
+                    onValueChangeFinished = { view.resetStabilizationClock(); player.seekTo(position); seeking = false },
                     valueRange = 0f..duration.coerceAtLeast(1L).toFloat(), enabled = duration > 0)
                 VideoShareButton(uri, com.okuyuki.protocol.PanoramaVideoFormat.OSMO_LRF)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
