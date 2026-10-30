@@ -9,14 +9,18 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
@@ -31,6 +35,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.okuyuki.android.host.*
 import com.okuyuki.android.library.*
+import com.okuyuki.android.tv.TvRemote
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
@@ -41,7 +46,8 @@ import java.util.Locale
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
     val updater = rememberAppUpdates()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
+    var showAll by rememberSaveable { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<IndexedMedia?>(null) }
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
     var panoramaPhoto by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoProxy by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -77,6 +83,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     var showGuide by rememberSaveable { mutableStateOf(!preferences.getBoolean("completed", false)) }
     var guidePage by rememberSaveable { mutableIntStateOf(0) }
     val photos by app.library.photos.collectAsStateWithLifecycle(emptyList())
+    val everything by app.library.media.collectAsStateWithLifecycle(emptyList())
+    val shown = if (showAll) everything else photos
     val libraryState by app.library.state.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
     val locale = configuration.locales[0] ?: Locale.JAPANESE
@@ -101,8 +109,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
             bottomBar = { PhoneNavigation(tab) { tab = it } }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 PhoneHeader(
-                    title = if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else stringResource(R.string.settings),
-                    status = if (host.clients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
+                    title = if (tab == 0) "Okuyuki" else if (tab == 1) stringResource(R.string.connect_tab) else stringResource(R.string.settings),
+                    status = if (host.clients + host.tvClients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
                     onStatusClick = { tab = 1 },
                 )
                 host.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error) }
@@ -111,14 +119,14 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(stringResource(R.string.pair_with, request.name), style = MaterialTheme.typography.titleMedium)
                             Text(request.code, style = MaterialTheme.typography.displaySmall)
-                            Text(stringResource(R.string.pair_instruction))
+                            Text(stringResource(if (request.kind == TV) R.string.pair_instruction_tv else R.string.pair_instruction))
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Button(onClick = { scope.launch {
                                     HostRuntime.pairingMutex.withLock {
                                         HostRuntime.authority.prepareApproval(request.requestId)?.let { peer ->
                                             val dao = app.database.dao()
                                             val previous = dao.peers().firstOrNull { it.clientId == peer.clientId }
-                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash))
+                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash, peer.kind))
                                             refreshAuthority(dao)
                                             if (!HostRuntime.authority.completeApproval(request.requestId, peer)) {
                                                 if (previous == null) dao.deletePeer(peer.clientId) else dao.savePeer(previous)
@@ -146,8 +154,14 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                         } }
                         item(span = { GridItemSpan(3) }) { Row(Modifier.fillMaxWidth().padding(start = 6.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
-                            Text(if (readable) stringResource(R.string.photo_count, photos.size) else stringResource(R.string.photos), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            Text(if (!readable) stringResource(R.string.photos) else if (showAll) stringResource(R.string.media_count, shown.size)
+                                else stringResource(R.string.photo_count, shown.size), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                             TextButton(onClick = { app.library.refresh() }) { Text(stringResource(R.string.refresh)) }
+                        } }
+                        // 3D photos are what Quest shows; a TV shows every photo and video.
+                        item(span = { GridItemSpan(3) }) { Row(Modifier.padding(start = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = !showAll, onClick = { showAll = false }, label = { Text(stringResource(R.string.photos)) })
+                            FilterChip(selected = showAll, onClick = { showAll = true }, label = { Text(stringResource(R.string.filter_all)) })
                         } }
                         item(span = { GridItemSpan(3) }) { Text(stringResource(when (libraryState) {
                             LibraryState.CHECKING -> R.string.status_checking
@@ -161,20 +175,25 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             Text(stringResource(R.string.permission_explain), style = MaterialTheme.typography.bodyMedium)
                             Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_access)) }
                         } } else if (libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED) {
-                            if (photos.isEmpty()) item(span = { GridItemSpan(3) }) { GlassPanel(Modifier.fillMaxWidth()) {
-                                Text(stringResource(R.string.empty_title), style = MaterialTheme.typography.titleMedium)
-                                Text(stringResource(R.string.empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (shown.isEmpty()) item(span = { GridItemSpan(3) }) { GlassPanel(Modifier.fillMaxWidth()) {
+                                Text(stringResource(if (showAll) R.string.empty_all_title else R.string.empty_title), style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(if (showAll) R.string.empty_all_body else R.string.empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (libraryState == LibraryState.LIMITED) {
                                     TextButton(onClick = requestPhotos) { Text(stringResource(R.string.change_selection)) }
                                 }
                             } } else {
-                                photos.groupBy { date(it.takenAt, locale) }.forEach { (day, group) ->
-                                    item(span = { GridItemSpan(3) }) { Text(stringResource(R.string.day_count, day, group.size), Modifier.padding(top = 12.dp, bottom = 8.dp, start = 4.dp), style = MaterialTheme.typography.titleSmall) }
-                                    items(group, key = { it.id }) { photo ->
-                                        Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(16.dp)).clickable { detail = photo }) {
-                                            PhoneThumbnail(app, photo, Modifier.fillMaxSize())
-                                            if (host.viewingId == photo.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(6.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
-                                                Text(stringResource(R.string.viewing_quest), Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                shown.groupBy { date(it.takenAt, locale) }.forEach { (day, group) ->
+                                    item(span = { GridItemSpan(3) }) { Text(stringResource(if (showAll) R.string.day_count_all else R.string.day_count, day, group.size), Modifier.padding(top = 12.dp, bottom = 8.dp, start = 4.dp), style = MaterialTheme.typography.titleSmall) }
+                                    items(group, key = { it.id }) { media ->
+                                        Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(16.dp)).clickable { detail = media }) {
+                                            PhoneThumbnail(app, media, Modifier.fillMaxSize())
+                                            if (media.isVideo) Text("▶ ${duration(media.durationMs)}", Modifier.align(Alignment.BottomEnd).padding(6.dp)
+                                                .background(Color(0x99000000), RoundedCornerShape(50)).padding(horizontal = 6.dp, vertical = 2.dp),
+                                                color = Color.White, style = MaterialTheme.typography.labelSmall)
+                                            // On top, so it never covers a video's length in the bottom corner.
+                                            if (host.viewingId == media.id.toString()) Surface(Modifier.align(Alignment.TopStart).padding(6.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
+                                                Text(stringResource(viewingLabel(host)), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
                                     }
@@ -186,15 +205,22 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                         GlassPanel(Modifier.fillMaxWidth()) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(stringResource(R.string.connect_quest), style = MaterialTheme.typography.titleLarge)
+                                    Text(stringResource(R.string.connect_devices), style = MaterialTheme.typography.titleLarge)
                                     Text(stringResource(R.string.same_wifi), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Switch(checked = host.running, onCheckedChange = toggleHost)
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
-                            Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off), style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(when {
+                                host.clients > 0 && host.tvClients > 0 -> R.string.both_connected
+                                host.tvClients > 0 -> R.string.tv_connected
+                                host.clients > 0 -> R.string.quest_connected
+                                host.running -> R.string.quest_waiting
+                                else -> R.string.quest_off
+                            }), style = MaterialTheme.typography.bodyMedium)
                             if (!app.library.hasPermission()) FilledTonalButton(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
                         }
+                        TvSection(app.tvRemote, host)
                         if (sharedPanorama != null || sharedVideo != null) GlassPanel(Modifier.fillMaxWidth()) {
                             if (sharedPanorama != null) {
                                 Text(stringResource(R.string.panorama_shared))
@@ -248,10 +274,19 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             Text(stringResource(R.string.paired), style = MaterialTheme.typography.titleMedium)
                             if (peers.isEmpty()) Text(stringResource(R.string.no_peers), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             peers.forEach { peer -> Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(peer.name, Modifier.weight(1f))
+                                Text(stringResource(R.string.peer_label, stringResource(if (peer.kind == TV) R.string.kind_tv else R.string.kind_quest), peer.name), Modifier.weight(1f))
                                 TextButton(onClick = { scope.launch { HostRuntime.pairingMutex.withLock {
                                     app.database.dao().deletePeer(peer.clientId); refreshAuthority(app.database.dao())
                                 } } }) { Text(stringResource(R.string.remove)) }
+                            } }
+                        }
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            val tvs by app.tvRemote.tvs.collectAsStateWithLifecycle()
+                            Text(stringResource(R.string.tv_opened_list), style = MaterialTheme.typography.titleMedium)
+                            if (tvs.isEmpty()) Text(stringResource(R.string.tv_opened_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            tvs.forEach { tv -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(tv.name, Modifier.weight(1f))
+                                TextButton(onClick = { app.tvRemote.forget(tv) }) { Text(stringResource(R.string.remove)) }
                             } }
                         }
                         GlassPanel(Modifier.fillMaxWidth()) {
@@ -264,12 +299,21 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
             }
         }
         UpdatePrompt(updater)
-        detail?.let { photo -> AlertDialog(onDismissRequest = { detail = null }, confirmButton = { TextButton(onClick = { detail = null }) { Text(stringResource(R.string.close)) } },
-            title = { Text(photo.name) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                PhoneThumbnail(app, photo, Modifier.fillMaxWidth().aspectRatio(photo.width.toFloat().coerceAtLeast(1f) / photo.height.coerceAtLeast(1)))
-                Text("${photo.width} × ${photo.height} · HEIC · ${date(photo.takenAt, locale)}")
-                Text(stringResource(R.string.detail_hint))
-            } }) }
+        detail?.let { media ->
+            val item = media.item()
+            AlertDialog(onDismissRequest = { detail = null }, confirmButton = { TextButton(onClick = { detail = null }) { Text(stringResource(R.string.close)) } },
+                dismissButton = if (host.tvClients > 0) { { TextButton(onClick = { HostRuntime.showOnTv(media.id); detail = null }) { Text(stringResource(R.string.show_on_tv)) } } } else null,
+                title = { Text(media.name) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PhoneThumbnail(app, media, Modifier.fillMaxWidth().aspectRatio(item.width.toFloat().coerceAtLeast(1f) / item.height.coerceAtLeast(1)))
+                    Text(listOfNotNull("${item.width} × ${item.height}", media.mime.substringAfter('/').uppercase(),
+                        media.durationMs?.takeIf { media.isVideo }?.let(::duration), HDR_LABELS[media.hdr], date(media.takenAt, locale)).joinToString(" · "))
+                    Text(stringResource(when {
+                        host.tvClients > 0 -> R.string.detail_tv_hint
+                        media.stereo -> R.string.detail_hint
+                        else -> R.string.detail_open_tv_hint
+                    }))
+                } })
+        }
         panoramaVideo?.let { uri -> PanoramaVideo(uri) { panoramaVideo = null } }
         panoramaPhoto?.let { uri -> PanoramaPhoto(uri) { panoramaPhoto = null } }
         osmoProxy?.let { uri -> OsmoProxyPreview(uri) { osmoProxy = null } }
@@ -292,7 +336,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
             confirmButton = { TextButton(onClick = { showMediaChooser = false }) { Text(stringResource(R.string.close)) } }
         )
         if (showGuide) {
-            val titles = listOf(stringResource(R.string.guide_welcome), stringResource(R.string.guide_photos), stringResource(R.string.connect_quest))
+            val titles = listOf(stringResource(R.string.guide_welcome), stringResource(R.string.guide_photos), stringResource(R.string.connect_devices))
             val descriptions = listOf(
                 stringResource(R.string.guide_intro),
                 stringResource(R.string.guide_library),
@@ -318,16 +362,60 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     }
 }
 
-@Composable private fun PhoneThumbnail(app: OkuyukiApplication, photo: IndexedPhoto, modifier: Modifier) {
-    val bitmap by produceState<Bitmap?>(null, photo.id, photo.modified) {
-        value = withContext(Dispatchers.IO) { runCatching { app.contentResolver.loadThumbnail(app.library.uri(photo.id), Size(512, 512), null) }.getOrNull() }
+@Composable private fun TvSection(remote: TvRemote, host: HostState) {
+    val tvs by remote.tvs.collectAsStateWithLifecycle()
+    val searching by remote.searching.collectAsStateWithLifecycle()
+    val busy by remote.busy.collectAsStateWithLifecycle()
+    val message by remote.message.collectAsStateWithLifecycle()
+    var address by rememberSaveable { mutableStateOf("") }
+    val ready = host.running && host.port > 0
+    GlassPanel(Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.tv_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(if (ready) R.string.tv_ready else R.string.tv_not_ready), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        tvs.forEach { tv -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(tv.name, style = MaterialTheme.typography.bodyLarge)
+                Text(tv.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(onClick = { remote.open(tv) }, enabled = ready && !busy) { Text(stringResource(R.string.tv_open)) }
+        } }
+        FilledTonalButton(onClick = remote::search, enabled = !searching) { Text(stringResource(if (searching) R.string.tv_searching else R.string.tv_search)) }
+        // For a TV that discovery cannot see, as on a network that blocks multicast.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(address, { address = it }, Modifier.weight(1f), label = { Text(stringResource(R.string.tv_address_label)) }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+            TextButton(onClick = { remote.openAddress(address) }, enabled = ready && !busy && address.isNotBlank()) { Text(stringResource(R.string.tv_open)) }
+        }
+        message?.let { Text(stringResource(it.text, *it.args.toTypedArray()), color = MaterialTheme.colorScheme.primary) }
+    }
+}
+
+@Composable private fun PhoneThumbnail(app: OkuyukiApplication, media: IndexedMedia, modifier: Modifier) {
+    val bitmap by produceState<Bitmap?>(null, media.id, media.modified) {
+        value = withContext(Dispatchers.IO) { runCatching { app.contentResolver.loadThumbnail(app.library.uri(media), Size(512, 512), null) }.getOrNull() }
     }
     Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-        bitmap?.let { Image(it.asImageBitmap(), contentDescription = photo.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) } ?: Text("3D")
+        bitmap?.let { Image(it.asImageBitmap(), contentDescription = media.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            ?: Text(if (media.isVideo) "▶" else if (media.stereo) "3D" else "")
     }
+}
+
+/** Which device shows the photo the phone marks: Quest, a TV, or either when both are connected. */
+private fun viewingLabel(host: HostState) = when {
+    host.tvClients > 0 && host.clients == 0 -> R.string.viewing_tv
+    host.clients > 0 && host.tvClients == 0 -> R.string.viewing_quest
+    else -> R.string.viewing_now
+}
+
+private val HDR_LABELS = mapOf("ultrahdr" to "Ultra HDR", "hdr10" to "HDR10", "hdr10plus" to "HDR10+", "hlg" to "HLG")
+
+private fun duration(ms: Long?): String {
+    val seconds = ((ms ?: 0) / 1000).toInt()
+    return if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60) else "%d:%02d".format(seconds / 60, seconds % 60)
 }
 
 private fun date(time: Long, locale: Locale) = SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMM d E"), locale).format(Date(time))
 private suspend fun refreshAuthority(dao: LibraryDao) {
-    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
+    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash, it.kind) })
 }

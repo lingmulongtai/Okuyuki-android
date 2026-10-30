@@ -19,6 +19,12 @@ Alpha uses HTTP on a trusted private Wi-Fi network. It does not promise encrypti
 CI builds and synthetic parser tests do not satisfy these physical checks. The original HEIC from the
 specification is not present in the workspace; embedded JPEG previews cannot validate HEIC decoding.
 
+## TV (protocol v2, in development)
+The phone also indexes every photo and video for Okuyuki TV on LG webOS, makes 4K stills and converted videos, and
+opens the TV app over SSAP. Pending on hardware: launching Okuyuki TV on an LG C5 from a Galaxy, approving the TV,
+4K still sharpness and HLG stills from Ultra HDR photos, original HDR10/HLG video playback, and conversion time and
+heat on the Galaxy.
+
 ## Later scope
 Immersive mode, TLS certificate pinning, remote selection, favorites/depth controls, tilt previews,
 embedded cloud picker, slideshow, video and stores follow after hardware acceptance.

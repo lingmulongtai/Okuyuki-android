@@ -35,6 +35,11 @@ jobs:
           path: |
             **/build/reports/
           retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: okuyuki-android-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
 
   device-preview:
     if: github.event_name == 'workflow_dispatch' && github.repository == 'lingmulongtai/Okuyuki-android' && github.ref == 'refs/heads/codex/android-quality'
