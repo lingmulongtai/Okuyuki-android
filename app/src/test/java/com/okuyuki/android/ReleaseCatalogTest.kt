@@ -31,5 +31,12 @@ class ReleaseCatalogTest {
         assertNull(ReleaseCatalog.fromChecksums(tag, "$digest  Okuyuki-android-$tag.apk\n$digest  Okuyuki-android-$tag.apk\n", "android"))
         assertNull(ReleaseCatalog.latestFeedTag(feed, "0.1.0-alpha.12-preview", "android"))
         assertThrows(IllegalArgumentException::class.java) { ReleaseCatalog.latestFeedTag("not a feed", "0.1.0-alpha.11-preview", "android") }
+        assertThrows(IllegalArgumentException::class.java) { ReleaseCatalog.latestFeedTag(feed.substringBefore("</feed>"), "0.1.0-alpha.11-preview", "android") }
+        assertThrows(IllegalArgumentException::class.java) { ReleaseCatalog.latestFeedTag(feed.replace("Okuyuki-android/releases/tag/", "other/releases/tag/"), "0.1.0-alpha.11-preview", "android") }
+    }
+    @Test fun ordersAlphaBetaReleaseCandidateAndStable() {
+        val json = "[${release("v0.2.0-beta.1")},${release("v0.2.0-rc.1")},${release("v0.2.0-alpha.20-preview")}]"
+        assertEquals("0.2.0-rc.1", ReleaseCatalog.find(json, "0.2.0-alpha.1-preview", "android")?.version)
+        assertEquals("0.2.0", ReleaseCatalog.find("[${release("v0.2.0")}]", "0.2.0-rc.1", "android")?.version)
     }
 }
