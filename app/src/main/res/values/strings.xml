@@ -82,6 +82,8 @@
     <string name="host_discovery_error">自動検出を開始できませんでした。Questで表示されたアドレスを入力してください</string>
     <string name="panorama_video">360°動画をプレビュー</string>
     <string name="open_360">360°メディアを開く</string>
+    <string name="media_card_subtitle">写真や動画、Osmo 360の映像をプレビュー</string>
+    <string name="open_media">開く</string>
     <string name="panorama_photo">360°写真をプレビュー</string>
     <string name="panorama_photo_error">写真を開けませんでした。結合済みの横2:縦1の360°写真を選んでください。</string>
     <string name="panorama_share">Questに共有</string>

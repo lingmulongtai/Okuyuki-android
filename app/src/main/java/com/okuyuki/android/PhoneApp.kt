@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -132,11 +134,17 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 }
                 when (tab) {
                     0 -> {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                            OutlinedButton(onClick = { showMediaChooser = true }) { Text(stringResource(R.string.open_360)) }
+                        GlassPanel(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(stringResource(R.string.open_360), style = MaterialTheme.typography.titleMedium)
+                                    Text(stringResource(R.string.media_card_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                FilledTonalButton(onClick = { showMediaChooser = true }) { Text(stringResource(R.string.open_media)) }
+                            }
                             if (osmoSelectionError) Text(stringResource(R.string.osmo_choose_error), color = MaterialTheme.colorScheme.error)
                         }
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
                             Text(if (readable) stringResource(R.string.photo_count, photos.size) else stringResource(R.string.photos), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                             TextButton(onClick = { app.library.refresh() }) { Text(stringResource(R.string.refresh)) }
@@ -148,25 +156,25 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             LibraryState.READY -> R.string.status_ready
                             LibraryState.LIMITED -> R.string.status_limited
                             LibraryState.ERROR -> R.string.status_error
-                        }), Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
-                        if (libraryState == LibraryState.PERMISSION_REQUIRED) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text(stringResource(R.string.permission_explain))
+                        }), Modifier.padding(start = 22.dp, end = 22.dp, bottom = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (libraryState == LibraryState.PERMISSION_REQUIRED) GlassPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            Text(stringResource(R.string.permission_explain), style = MaterialTheme.typography.bodyMedium)
                             Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_access)) }
                         } else if (libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED) {
-                            if (photos.isEmpty()) Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            if (photos.isEmpty()) GlassPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                                 Text(stringResource(R.string.empty_title), style = MaterialTheme.typography.titleMedium)
-                                Text(stringResource(R.string.empty_body))
+                                Text(stringResource(R.string.empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (libraryState == LibraryState.LIMITED) {
                                     TextButton(onClick = requestPhotos) { Text(stringResource(R.string.change_selection)) }
                                 }
-                            } else LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            } else LazyVerticalGrid(columns = GridCells.Fixed(3), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 photos.groupBy { date(it.takenAt, locale) }.forEach { (day, group) ->
-                                    item(span = { GridItemSpan(3) }) { Text(stringResource(R.string.day_count, day, group.size), Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall) }
+                                    item(span = { GridItemSpan(3) }) { Text(stringResource(R.string.day_count, day, group.size), Modifier.padding(top = 12.dp, bottom = 8.dp, start = 4.dp), style = MaterialTheme.typography.titleSmall) }
                                     items(group, key = { it.id }) { photo ->
-                                        Box(Modifier.aspectRatio(1f).clickable { detail = photo }) {
+                                        Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(16.dp)).clickable { detail = photo }) {
                                             PhoneThumbnail(app, photo, Modifier.fillMaxSize())
-                                            if (host.viewingId == photo.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(4.dp), color = MaterialTheme.colorScheme.primary) {
-                                                Text(stringResource(R.string.viewing_quest), Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                                            if (host.viewingId == photo.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(6.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
+                                                Text(stringResource(R.string.viewing_quest), Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                             }
                                         }
                                     }

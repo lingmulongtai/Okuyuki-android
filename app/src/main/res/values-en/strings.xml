@@ -82,6 +82,8 @@
     <string name="host_discovery_error">Discovery failed. Enter the address shown here on Quest.</string>
     <string name="panorama_video">Preview 360° video</string>
     <string name="open_360">Open 360° media</string>
+    <string name="media_card_subtitle">Preview photos, videos, and Osmo 360 footage</string>
+    <string name="open_media">Open</string>
     <string name="panorama_photo">Preview 360° photo</string>
     <string name="panorama_photo_error">Could not open the photo. Choose a stitched 2:1 360° photo.</string>
     <string name="panorama_share">Share with Quest</string>
