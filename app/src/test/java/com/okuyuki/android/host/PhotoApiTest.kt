@@ -15,6 +15,39 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PhotoApiTest {
+    @Test fun `large video range keeps its full width offset`() = testApplication {
+        val authority = PairingAuthority()
+        val size = 100L * 1024 * 1024 * 1024
+        val offset = 75L * 1024 * 1024 * 1024
+        val share = PanoramaVideoShare("0123456789abcdef0123456789abcdef", size, PanoramaVideoFormat.OSMO_OSV)
+        val bytes = byteArrayOf(1, 2, 3, 4)
+        var openedAt = -1L
+        val video = object : PanoramaVideoSource {
+            override suspend fun current() = share
+            override suspend fun open(id: String, offset: Long): java.io.InputStream {
+                openedAt = offset
+                return bytes.inputStream()
+            }
+        }
+        val photos = object : HostPhotoSource {
+            override suspend fun photos() = emptyList<Photo>()
+            override suspend fun thumbnail(id: String) = null
+            override suspend fun original(id: String): Original? = null
+        }
+        application { photoApi(photos, authority, { Hello("phone", "Galaxy", "alpha", 0) }, MutableSharedFlow(), video = video) }
+        val request = PairRequest("quest", "Quest")
+        val pending = authority.beginOrPoll(request)
+        val peer = authority.prepareApproval(pending.requestId)!!
+        authority.setPeers(listOf(peer)); assertTrue(authority.completeApproval(pending.requestId, peer))
+        val token = authority.beginOrPoll(request.copy(requestId = pending.requestId)).token!!
+        val response = client.get("/v3/panorama/video/${share.id}") {
+            bearerAuth(token); header(HttpHeaders.Range, "bytes=$offset-${offset + 3}")
+        }
+        assertEquals(HttpStatusCode.PartialContent, response.status)
+        assertEquals("bytes $offset-${offset + 3}/$size", response.headers[HttpHeaders.ContentRange])
+        assertEquals(offset, openedAt)
+        assertArrayEquals(bytes, response.readRawBytes())
+    }
     @Test fun `revocation closes a provider stalled in read`() = kotlinx.coroutines.runBlocking {
         val entered = java.util.concurrent.CountDownLatch(1)
         val released = java.util.concurrent.CountDownLatch(1)
