@@ -64,9 +64,10 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host:3.3.1")
     testImplementation("org.xerial:sqlite-jdbc:3.41.2.2")
 
-    // TV: 4K stills and video conversion.
+    // TV: 4K stills and conversions, and launching the TV app over LG's SSAP WebSocket.
     implementation("androidx.media3:media3-transformer:1.11.1")
     implementation("androidx.media3:media3-effect:1.11.1")
     implementation("androidx.media3:media3-common:1.11.1")
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
 
 }
