@@ -33,6 +33,24 @@ class PairingAuthorityTest {
         assertTrue(authority.pending.value.isEmpty())
     }
 
+    @Test fun `a request without its requestId never joins a pending one`() {
+        val authority = PairingAuthority()
+        val first = authority.beginOrPoll(PairRequest("quest", "Quest"))
+        // Someone who learned the clientId gets a request (and code) of their own, not the pending one.
+        val second = authority.beginOrPoll(PairRequest("quest", "Quest"))
+        assertNotEquals(first.requestId, second.requestId)
+        assertEquals("expired", authority.beginOrPoll(PairRequest("quest", "Quest", first.requestId)).state)
+        assertEquals(listOf(second.requestId), authority.pending.value.map { it.requestId })
+        val peer = authority.prepareApproval(second.requestId)!!
+        authority.setPeers(listOf(peer))
+        assertTrue(authority.completeApproval(second.requestId, peer))
+        val third = authority.beginOrPoll(PairRequest("quest", "Quest"))
+        assertNotEquals(second.requestId, third.requestId)
+        assertEquals("pending", third.state)
+        assertNull(third.token)
+        assertNotNull(authority.beginOrPoll(PairRequest("quest", "Quest", second.requestId)).token)
+    }
+
     @Test fun `requests expire and cannot be claimed by another client`() {
         var now = 0L
         val authority = PairingAuthority { now }
