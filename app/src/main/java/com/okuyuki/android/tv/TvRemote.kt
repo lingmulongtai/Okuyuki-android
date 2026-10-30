@@ -1,6 +1,8 @@
 package com.okuyuki.android.tv
 
 import android.content.Context
+import androidx.annotation.StringRes
+import com.okuyuki.android.R
 import com.okuyuki.android.host.HostRuntime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -11,8 +13,11 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** The phone's "テレビで見る": finds LG TVs and opens Okuyuki TV pointed at this phone. */
-class TvRemote(context: Context, private val scope: CoroutineScope) {
+/** A line for the phone's TV section: a string resource and its arguments, resolved in the app's current language. */
+data class TvMessage(@StringRes val text: Int, val args: List<String> = emptyList())
+
+/** The phone's "watch on TV": finds LG TVs and opens Okuyuki TV pointed at this phone. */
+class TvRemote(private val context: Context, private val scope: CoroutineScope) {
     private val credentials = TvCredentials(context)
     private val launcher = TvLauncher(context, credentials)
     private val _tvs = MutableStateFlow(credentials.known())
@@ -22,7 +27,7 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
     val searching = _searching.asStateFlow()
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
-    private val _message = MutableStateFlow<String?>(null)
+    private val _message = MutableStateFlow<TvMessage?>(null)
     val message = _message.asStateFlow()
 
     fun search() {
@@ -34,9 +39,9 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
                 val found = launcher.discover()
                 found.forEach(credentials::remember)
                 _tvs.value = credentials.known()
-                if (found.isEmpty()) _message.value = "テレビが見つかりませんでした。テレビの電源を入れ、スマホと同じ Wi-Fi につないでください"
+                if (found.isEmpty()) _message.value = TvMessage(R.string.tv_none_found)
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { _message.value = "テレビを探せませんでした。Wi-Fi を確認してください" }
+            catch (_: Exception) { _message.value = TvMessage(R.string.tv_search_failed) }
             finally { _searching.value = false }
         }
     }
@@ -47,21 +52,21 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
         val host = HostRuntime.state.value
         val phone = phoneAddress(host.addresses, tv.address)
         if (!host.running || host.port == 0 || phone == null) {
-            _message.value = "先に「Quest・テレビとつなぐ」をオンにしてください"
+            _message.value = TvMessage(R.string.tv_turn_on_first)
             return
         }
         _busy.value = true
-        _message.value = "${tv.name} に接続しています…"
+        _message.value = TvMessage(R.string.tv_connecting, listOf(tv.name))
         scope.launch {
             try {
                 val params = buildJsonObject { put("host", phone); put("port", host.port); put("deviceId", host.deviceId) }
-                launcher.launch(tv, params) { _message.value = "テレビの画面で「許可」を選んでください" }
+                launcher.launch(tv, params) { _message.value = TvMessage(R.string.tv_allow_on_tv) }
                 credentials.remember(tv)
                 _tvs.value = credentials.known()
-                _message.value = "${tv.name} で Okuyuki TV を開きました"
+                _message.value = TvMessage(R.string.tv_opened, listOf(tv.name))
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: LaunchException) { _message.value = error.message }
-            catch (_: Exception) { _message.value = "テレビに接続できませんでした。テレビの電源と Wi-Fi を確認してください" }
+            catch (error: LaunchException) { _message.value = TvMessage(error.reason, listOfNotNull(error.detail)) }
+            catch (_: Exception) { _message.value = TvMessage(R.string.tv_failed) }
             finally { _busy.value = false }
         }
     }
@@ -70,10 +75,10 @@ class TvRemote(context: Context, private val scope: CoroutineScope) {
     fun openAddress(text: String) {
         val address = text.trim()
         if (!IPV4.matches(address) || address.split('.').any { it.toInt() > 255 }) {
-            _message.value = "テレビの IP アドレスを「192.168.1.20」の形で入力してください"
+            _message.value = TvMessage(R.string.tv_address_format)
             return
         }
-        open(_tvs.value.firstOrNull { it.address == address } ?: FoundTv("ip:$address", "LG テレビ（$address）", address))
+        open(_tvs.value.firstOrNull { it.address == address } ?: FoundTv("ip:$address", context.getString(R.string.tv_unnamed, address), address))
     }
 
     fun forget(tv: FoundTv) {

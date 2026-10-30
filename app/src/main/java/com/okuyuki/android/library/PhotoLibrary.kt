@@ -22,11 +22,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.FileInputStream
 
+enum class LibraryState { CHECKING, PERMISSION_REQUIRED, SCANNING, READY, LIMITED, ERROR }
+
 class PhotoLibrary(private val context: Context, val dao: LibraryDao, private val scope: CoroutineScope) {
     private val scanning = Mutex()
     private var rescan: Job? = null
-    private val _status = MutableStateFlow("写真へのアクセスを許可してください")
-    val status = _status.asStateFlow()
+    private val _state = MutableStateFlow(LibraryState.CHECKING)
+    val state = _state.asStateFlow()
     /** 3D photos, for Quest and the phone's own grid. */
     val photos = dao.observePhotos()
     /** Every indexed photo and video, newest first. */
@@ -49,18 +51,26 @@ class PhotoLibrary(private val context: Context, val dao: LibraryDao, private va
 
     fun refresh() {
         rescan?.cancel()
+        _state.value = LibraryState.CHECKING
         rescan = scope.launch {
             delay(300)
             scanning.withLock {
-                if (!hasPermission()) { _status.value = "写真へのアクセスを許可してください"; return@withLock }
-                _status.value = "写真と動画を確認しています…"
+                if (!hasPermission()) {
+                    _state.value = LibraryState.PERMISSION_REQUIRED
+                    return@withLock
+                }
+                _state.value = LibraryState.SCANNING
                 try {
                     if (scan()) _changes.tryEmit(Unit)
                     val limited = !granted(Manifest.permission.READ_MEDIA_IMAGES)
-                    _status.value = if (limited) "許可した写真と動画のみ表示中 · すべて見るには写真の許可を変更" else "ギャラリーの写真と動画を読み取りました"
+                    _state.value = if (limited) LibraryState.LIMITED else LibraryState.READY
                 } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: SecurityException) { _status.value = "写真の許可が変更されました。再度許可してください" }
-                catch (_: Exception) { _status.value = "写真を読み取れませんでした。もう一度更新してください" }
+                catch (_: SecurityException) {
+                    _state.value = LibraryState.PERMISSION_REQUIRED
+                }
+                catch (_: Exception) {
+                    _state.value = LibraryState.ERROR
+                }
             }
         }
     }

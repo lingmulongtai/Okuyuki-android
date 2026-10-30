@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.SystemClock
+import androidx.annotation.StringRes
+import com.okuyuki.android.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -34,8 +36,8 @@ import javax.net.ssl.X509TrustManager
 /** An LG TV on the network. [id] is the UUID it announces, which stays the same when its address changes. */
 data class FoundTv(val id: String, val name: String, val address: String)
 
-/** A launch that failed for a reason the user can act on; [message] is shown as is. */
-class LaunchException(message: String, cause: Throwable? = null) : Exception(message, cause)
+/** A launch that failed for a reason the user can act on: [reason] is the string shown, with [detail] filled in. */
+class LaunchException(@StringRes val reason: Int, val detail: String? = null, cause: Throwable? = null) : Exception(detail, cause)
 
 /** SSDP discovery of LG webOS TVs (the "second screen" service). */
 object Ssdp {
@@ -145,7 +147,7 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
                     found[id] = (packet.address.hostAddress ?: continue) to headers["location"]
                 }
             }
-            found.map { (id, value) -> FoundTv(id, name(value.second) ?: "LG テレビ（${value.first}）", value.first) }
+            found.map { (id, value) -> FoundTv(id, name(value.second) ?: context.getString(R.string.tv_unnamed, value.first), value.first) }
         } finally {
             lock?.release()
         }
@@ -168,11 +170,11 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
         } catch (secure: Unreachable) {
             // TVs from before 2022 listen without TLS on port 3000. A TV that has answered over TLS before
             // never gets the client key in the clear, so blocking port 3001 cannot downgrade it.
-            if (credentials.pin(tv.id) != null) throw LaunchException(UNREACHABLE, secure.cause)
+            if (credentials.pin(tv.id) != null) throw LaunchException(R.string.tv_unreachable, cause = secure.cause)
             try {
                 connect(tv, "ws://${tv.address}:3000", onPrompt, params)
             } catch (_: Unreachable) {
-                throw LaunchException(UNREACHABLE, secure.cause)
+                throw LaunchException(R.string.tv_unreachable, cause = secure.cause)
             }
         }
     }
@@ -202,7 +204,7 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { error }
             if (failure != null) {
-                if (trust.mismatch) throw LaunchException("テレビの証明書が前回と違います。設定でこのテレビの登録を解除してから、もう一度試してください", failure)
+                if (trust.mismatch) throw LaunchException(R.string.tv_certificate_changed, cause = failure)
                 throw Unreachable(failure)
             }
             socket.send(Ssap.register(credentials.clientKey(tv.id)))
@@ -217,10 +219,10 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
                             trust.seen?.let { credentials.savePin(tv.id, it) }
                             break
                         }
-                        "error" -> throw LaunchException("テレビで許可されませんでした。もう一度試して、テレビの画面で「許可」を選んでください")
+                        "error" -> throw LaunchException(R.string.tv_not_allowed)
                     }
                 }
-            } ?: throw LaunchException("テレビで許可されませんでした。もう一度試して、テレビの画面で「許可」を選んでください")
+            } ?: throw LaunchException(R.string.tv_not_allowed)
             socket.send(Ssap.launch(params))
             withTimeoutOrNull(15_000) {
                 while (true) {
@@ -228,24 +230,20 @@ class TvLauncher(private val context: Context, private val credentials: TvCreden
                     if (reply.id != Ssap.LAUNCH) continue
                     if (reply.type == "response" && reply.succeeded) break
                     val problem = reply.problem
-                    throw LaunchException(when {
-                        reply.missingApp -> "テレビに Okuyuki TV が入っていないようです。先にテレビにインストールしてください"
-                        problem.isNullOrBlank() -> "テレビで Okuyuki TV を開けませんでした"
-                        else -> "テレビで Okuyuki TV を開けませんでした（$problem）"
-                    })
+                    throw when {
+                        reply.missingApp -> LaunchException(R.string.tv_app_missing)
+                        problem.isNullOrBlank() -> LaunchException(R.string.tv_launch_failed)
+                        else -> LaunchException(R.string.tv_launch_failed_detail, problem)
+                    }
                 }
-            } ?: throw LaunchException("テレビから返事がありませんでした。もう一度試してください")
+            } ?: throw LaunchException(R.string.tv_no_answer)
         } catch (closed: ClosedReceiveChannelException) {
-            throw LaunchException("テレビとの接続が切れました。もう一度試してください", closed)
+            throw LaunchException(R.string.tv_disconnected, cause = closed)
         } finally {
             socket.close(1000, null)
             client.dispatcher.executorService.shutdown()
             client.connectionPool.evictAll()
         }
-    }
-
-    private companion object {
-        const val UNREACHABLE = "テレビに接続できませんでした。テレビの電源が入っていて、同じ Wi-Fi にあるか確認してください"
     }
 
     /**

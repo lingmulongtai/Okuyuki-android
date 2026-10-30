@@ -26,6 +26,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() { super.onResume(); app.library.refresh() }
     private fun startHost() {
         try { ContextCompat.startForegroundService(this, Intent(this, com.okuyuki.android.host.HostService::class.java)) }
-        catch (_: Exception) { com.okuyuki.android.host.HostRuntime.state.value = com.okuyuki.android.host.HostState(error = "待機を開始できませんでした。アプリを開いた状態で再試行してください") }
+        catch (_: Exception) { com.okuyuki.android.host.HostRuntime.state.value = com.okuyuki.android.host.HostState(error = R.string.host_start_error) }
     }
 }
