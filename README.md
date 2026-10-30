@@ -10,12 +10,12 @@ Project: https://github.com/users/lingmulongtai/projects/2
 
 **開発版で360°写真・動画の共有を試す場合:** [Galaxy・Quest実機テスト用プレビュー](docs/DEVICE-PREVIEW.md)をご覧ください。
 
-配布中のアルファは **v0.1.0-alpha.1** です。Galaxyは **Android 16** が必要です。
+配布中のアルファは **v0.1.0-alpha.8-preview** です。Galaxyは **Android 16** が必要です。
 
 | 入れる端末 | APKの直接ダウンロード | 保存先 |
 | --- | --- | --- |
-| Galaxy | [Android版APK](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.1/Okuyuki-android-v0.1.0-alpha.1.apk) | Galaxy |
-| Quest 3S／3 | [Quest版APK](https://github.com/lingmulongtai/Okuyuki-quest/releases/download/v0.1.0-alpha.1/Okuyuki-quest-v0.1.0-alpha.1.apk) | Windows PC |
+| Galaxy | [Android版APK](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.8-preview/Okuyuki-android-v0.1.0-alpha.8-preview.apk) | Galaxy |
+| Quest 3S／3 | [Quest版APK](https://github.com/lingmulongtai/Okuyuki-quest/releases/download/v0.1.0-alpha.8-preview/Okuyuki-quest-v0.1.0-alpha.8-preview.apk) | Windows PC |
 
 1. **Galaxy**: Android版APKを開き、インストール元の許可を与えて入れます。Okuyukiの写真アクセスを許可し、ライブラリに試したい3D写真があることを確認します。
 2. **Quest**: Meta Horizonアプリで開発者モードをオンにし、PCとUSB接続してQuest内のUSBデバッグを許可します。PCからADBでQuest版APKを入れ、アプリライブラリーの「提供元不明」から **Okuyuki Quest** を開きます。
@@ -28,16 +28,16 @@ Project: https://github.com/users/lingmulongtai/projects/2
 通常の写真は3D一覧の対象外です。GalaxyのSamsungステレオHEICの原本を使ってください。
 実機での原本デコード・左右の立体表示は未検証です。アルファの通信は承認付きHTTPなので、信頼できる自宅Wi-FiまたはGalaxyのテザリングで試してください。
 
-## 開発中の機能
+## このプレビューで試せる機能
 
-配布中のv0.1.0-alpha.1には、以下の開発中の変更は含まれていません。
+以下は実機検証前の実験機能です。
 
 開発中のAndroid版をGalaxyで試すには、[実機テスト用プレビューの導入手順](docs/DEVICE-PREVIEW.md)をご覧ください。
 
 - 設定で日本語・英語・端末の言語、ライト・ダーク・端末のテーマを選択できます。
 - ライブラリの「360°メディアを開く」から、結合済みの2:1の360°写真や360° MP4をスマートフォン上で表示できます。写真は表示時に最大4096ピクセルに縮小されます。部分的に切り抜かれたパノラマには未対応です。
 - 同じ入口からDJI Osmo 360の `.LRF` を選ぶと、左右の魚眼映像を使う実験的なプレビューを試せます。ドラッグで視点を変更でき、再生・一時停止・シークに対応します。対応するLRFではカメラの校正値を使う実験的なレンズ補正を適用し、読み取れない場合は近似表示に戻ります。対応するLRFでは、画面のスイッチから実験的な回転平滑化も試せます。時刻を照合できない場合は自動でオフになります。
-- `.OSV` の2映像を使用する実験的な直接プレビューでは、対応する校正情報がある場合はレンズ校正を適用します。手ぶれ補正は未実装で、実機でのデコードと同期は未検証です。
+- `.OSV` の2映像を使用する実験的な直接プレビューでは、対応する校正情報がある場合はレンズ校正を適用します。対応する姿勢情報を利用した実験的な回転平滑化を選べます。実機でのデコードと同期は未検証です。
 - 結合済み360°写真・MP4とOSV・LRFをQuestへ共有し、通常ウィンドウで表示できます。対応するOSV・LRFの校正値もQuestへ渡します。結合済みMP4とLRF・OSVではQuestの実験的な頭部追従による没入表示も選べます。Galaxy・Quest実機での動作は未検証です。
 
 ## Build
