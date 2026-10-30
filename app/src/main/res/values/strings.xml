@@ -72,6 +72,7 @@
     <string name="panorama_photo">360°写真をプレビュー</string>
     <string name="panorama_photo_error">写真を開けませんでした。結合済みの横2:縦1の360°写真を選んでください。</string>
     <string name="panorama_share">Questに共有</string>
+    <string name="panorama_video_preparing">動画を準備中…</string>
     <string name="panorama_share_requires_host">Questタブで接続待機をオンにすると共有できます。</string>
     <string name="panorama_shared">360°写真を共有中です。Questの一覧で開いてください。</string>
     <string name="panorama_share_error">共有できませんでした。接続待機と写真のサイズ（64 MB以下）を確認してください。</string>

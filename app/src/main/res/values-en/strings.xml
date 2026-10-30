@@ -72,6 +72,7 @@
     <string name="panorama_photo">Preview 360° photo</string>
     <string name="panorama_photo_error">Could not open the photo. Choose a stitched 2:1 360° photo.</string>
     <string name="panorama_share">Share with Quest</string>
+    <string name="panorama_video_preparing">Preparing video…</string>
     <string name="panorama_share_requires_host">Turn on waiting in the Quest tab to share.</string>
     <string name="panorama_shared">Sharing a 360° photo. Open it on your Quest.</string>
     <string name="panorama_share_error">Could not share. Check that waiting is on and the photo is 64 MB or smaller.</string>

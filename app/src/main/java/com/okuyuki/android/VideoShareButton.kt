@@ -65,7 +65,7 @@ fun VideoShareButton(uri: Uri, format: PanoramaVideoFormat, enabled: Boolean = t
                 }
             } finally { sharing = false }
         }
-    }) { Text(stringResource(R.string.panorama_share)) }
+    }) { Text(stringResource(if (sharing) R.string.panorama_video_preparing else R.string.panorama_share)) }
     if (!host.running) Text(stringResource(R.string.panorama_share_requires_host))
     if (shareFailed) Text(stringResource(R.string.panorama_video_share_error), color = MaterialTheme.colorScheme.error)
     if (shared?.uri == uri) Text(stringResource(R.string.panorama_video_shared))
