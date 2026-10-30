@@ -15,6 +15,34 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PhotoApiTest {
+    @Test fun `revoked headset cannot receive an in flight original`() = testApplication {
+        val authority = PairingAuthority()
+        val data = ByteArray(1024) { 7 }
+        var read = false
+        val source = object : HostPhotoSource {
+            override suspend fun photos() = emptyList<Photo>()
+            override suspend fun thumbnail(id: String) = null
+            override suspend fun original(id: String) = Original(data.size.toLong()) {
+                object : java.io.ByteArrayInputStream(data) {
+                    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                        val count = super.read(buffer, offset, length)
+                        read = true
+                        authority.setPeers(emptyList())
+                        return count
+                    }
+                }
+            }
+        }
+        application { photoApi(source, authority, { Hello("phone", "Galaxy", "alpha", 0) }, MutableSharedFlow()) }
+        val request = PairRequest("quest", "Quest")
+        val pending = authority.beginOrPoll(request)
+        val peer = authority.prepareApproval(pending.requestId)!!
+        authority.setPeers(listOf(peer)); assertTrue(authority.completeApproval(pending.requestId, peer))
+        val token = authority.beginOrPoll(request.copy(requestId = pending.requestId)).token!!
+        val received = runCatching { client.get("/v1/items/1/original") { bearerAuth(token) }.readRawBytes() }.getOrNull()
+        assertTrue(read)
+        assertTrue(received == null || received.size < data.size)
+    }
     @Test fun `large video range keeps its full width offset`() = testApplication {
         val authority = PairingAuthority()
         val size = 100L * 1024 * 1024 * 1024

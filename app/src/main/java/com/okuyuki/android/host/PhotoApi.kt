@@ -20,6 +20,8 @@ import java.io.OutputStream
 import io.ktor.utils.io.*
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class Original(val size: Long, val open: () -> InputStream)
 interface HostPhotoSource {
@@ -211,10 +213,24 @@ fun Application.photoApi(
         }
         get("/v1/items/{id}/original") {
             if (!permitted(call)) return@get
-            val original = source.original(call.parameters["id"] ?: "")
+            val id = call.parameters["id"] ?: ""
+            val authorization = call.request.headers[HttpHeaders.Authorization]
+            val original = source.original(id)
             if (original == null) { call.respond(HttpStatusCode.NotFound); return@get }
             if (original.size !in 1..Protocol.MAX_ORIGINAL_BYTES) { call.respond(HttpStatusCode.PayloadTooLarge); return@get }
-            call.respondRanged(original.size, ContentType.parse("image/heic"), original.open)
+            val accessLock = Mutex()
+            var checkedAt = 0L
+            var sourceAllowed = true
+            call.respondRanged(original.size, ContentType.parse("image/heic"), original.open) {
+                if (!authority.authorized(authorization)) false else accessLock.withLock {
+                    val now = System.nanoTime()
+                    if (checkedAt == 0L || now - checkedAt >= 250_000_000L) {
+                        sourceAllowed = source.original(id)?.size == original.size
+                        checkedAt = now
+                    }
+                    sourceAllowed && authority.authorized(authorization)
+                }
+            }
         }
         webSocket("/v1/events") {
             val authorization = call.request.headers[HttpHeaders.Authorization]
