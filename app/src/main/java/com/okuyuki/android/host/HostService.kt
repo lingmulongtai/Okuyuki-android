@@ -31,12 +31,14 @@ data class HostState(val running: Boolean = false, val port: Int = 0, val addres
 internal fun acceptsPanoramaShare(sessionId: String?, state: HostState) =
     sessionId != null && state.running && state.sessionId == sessionId
 data class SelectedPanoramaPhoto(val share: PanoramaPhotoShare, val uri: Uri)
+data class SelectedPanoramaVideo(val share: PanoramaVideoShare, val uri: Uri)
 
 object HostRuntime {
     val state = MutableStateFlow(HostState())
     val authority = PairingAuthority()
     val pairingMutex = Mutex()
     val panoramaPhoto = MutableStateFlow<SelectedPanoramaPhoto?>(null)
+    val panoramaVideo = MutableStateFlow<SelectedPanoramaVideo?>(null)
 }
 
 class HostService : Service() {
@@ -61,8 +63,8 @@ class HostService : Service() {
             }
         }
         scope.launch {
-            combine(HostRuntime.authority.pending, HostRuntime.panoramaPhoto) { requests, photo ->
-                if (requests.isNotEmpty()) R.string.notify_code else if (photo != null) R.string.notify_sharing else R.string.notify_waiting
+            combine(HostRuntime.authority.pending, HostRuntime.panoramaPhoto, HostRuntime.panoramaVideo) { requests, photo, video ->
+                if (requests.isNotEmpty()) R.string.notify_code else if (video != null) R.string.notify_video_sharing else if (photo != null) R.string.notify_sharing else R.string.notify_waiting
             }.collect { message ->
                 getSystemService(NotificationManager::class.java).notify(1,
                     notification(getString(message)))
@@ -81,7 +83,7 @@ class HostService : Service() {
                             lastClientAt = System.currentTimeMillis()
                             HostRuntime.state.update { it.copy(clients = count, viewingId = if (count == 0) null else it.viewingId) }
                         }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } },
-                        panorama = panoramaSource())
+                        panorama = panoramaSource(), video = videoSource())
                 }
                 server = engine
                 withContext(Dispatchers.IO) { engine.start(wait = false) }
@@ -90,6 +92,7 @@ class HostService : Service() {
                 advertise(port)
                 launch { app.library.photos.drop(1).collect { events.emit(Event("library_changed")) } }
                 launch { HostRuntime.panoramaPhoto.collect { events.emit(Event("panorama_changed")) } }
+                launch { HostRuntime.panoramaVideo.collect { events.emit(Event("panorama_video_changed")) } }
                 while (isActive) {
                     delay(30_000)
                     if (HostRuntime.state.value.clients > 0) lastClientAt = System.currentTimeMillis()
@@ -111,6 +114,25 @@ class HostService : Service() {
             } catch (_: java.io.FileNotFoundException) {
                 HostRuntime.panoramaPhoto.compareAndSet(selected, null)
                 null
+            }
+        }
+    }
+
+    private fun videoSource() = object : PanoramaVideoSource {
+        override suspend fun current() = HostRuntime.panoramaVideo.value?.share
+        override suspend fun open(id: String, offset: Long): java.io.InputStream? {
+            val selected = HostRuntime.panoramaVideo.value?.takeIf { it.share.id == id } ?: return null
+            return try {
+                val asset = contentResolver.openAssetFileDescriptor(selected.uri, "r") ?: return null
+                try {
+                    val input = asset.createInputStream()
+                    try { input.channel.position(Math.addExact(asset.startOffset, offset)); input }
+                    catch (error: Exception) { input.close(); throw error }
+                } catch (error: Exception) { asset.close(); throw error }
+            } catch (_: SecurityException) {
+                HostRuntime.panoramaVideo.compareAndSet(selected, null); null
+            } catch (_: java.io.IOException) {
+                HostRuntime.panoramaVideo.compareAndSet(selected, null); null
             }
         }
     }
@@ -169,6 +191,7 @@ class HostService : Service() {
         super.onConfigurationChanged(newConfig)
         updateNotificationChannel()
         val message = if (HostRuntime.authority.pending.value.isNotEmpty()) R.string.notify_code
+            else if (HostRuntime.panoramaVideo.value != null) R.string.notify_video_sharing
             else if (HostRuntime.panoramaPhoto.value != null) R.string.notify_sharing else R.string.notify_waiting
         getSystemService(NotificationManager::class.java).notify(1, notification(getString(message)))
     }
@@ -180,6 +203,7 @@ class HostService : Service() {
     override fun onDestroy() {
         destroyed = true
         HostRuntime.panoramaPhoto.value = null
+        HostRuntime.panoramaVideo.value = null
         scope.cancel()
         if (announced) registration?.let { runCatching { getSystemService(NsdManager::class.java).unregisterService(it) } }
         server?.stop(0, 300)

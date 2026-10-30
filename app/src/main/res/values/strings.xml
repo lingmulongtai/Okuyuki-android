@@ -84,4 +84,8 @@
     <string name="osmo_choose_error">LRFファイルを選んでください。</string>
     <string name="play">再生</string>
     <string name="pause">一時停止</string>
+    <string name="notify_video_sharing">360°動画を共有中</string>
+    <string name="panorama_video_shared">360°動画を共有中です。Questで開いてください。</string>
+    <string name="panorama_video_stop_share">360°動画の共有を終了</string>
+    <string name="panorama_video_share_error">動画を共有できませんでした。接続待機、ファイルのサイズ（64 GiB以下）、端末内でシーク可能な動画か確認してください。</string>
 </resources>

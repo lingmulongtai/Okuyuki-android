@@ -82,6 +82,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     val localeManager = LocalContext.current.getSystemService(LocaleManager::class.java)
     val host by HostRuntime.state.collectAsStateWithLifecycle()
     val sharedPanorama by HostRuntime.panoramaPhoto.collectAsStateWithLifecycle()
+    val sharedVideo by HostRuntime.panoramaVideo.collectAsStateWithLifecycle()
     val pending by HostRuntime.authority.pending.collectAsStateWithLifecycle()
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
     val darkTheme = when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
@@ -186,6 +187,10 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                         if (sharedPanorama != null) {
                             Text(stringResource(R.string.panorama_shared))
                             OutlinedButton(onClick = { HostRuntime.panoramaPhoto.value = null }) { Text(stringResource(R.string.panorama_stop_share)) }
+                        }
+                        if (sharedVideo != null) {
+                            Text(stringResource(R.string.panorama_video_shared))
+                            OutlinedButton(onClick = { HostRuntime.panoramaVideo.value = null }) { Text(stringResource(R.string.panorama_video_stop_share)) }
                         }
                         Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off))
                         if (host.addresses.isNotEmpty()) {
