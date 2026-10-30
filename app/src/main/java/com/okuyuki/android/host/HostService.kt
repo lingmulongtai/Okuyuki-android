@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.IBinder
+import android.net.Uri
 import android.util.Size
 import androidx.core.app.NotificationCompat
 import com.okuyuki.android.*
@@ -26,12 +27,18 @@ import java.net.NetworkInterface
 import java.util.UUID
 
 data class HostState(val running: Boolean = false, val port: Int = 0, val addresses: List<String> = emptyList(),
-    val clients: Int = 0, val viewingId: String? = null, val error: String? = null)
+    val clients: Int = 0, val viewingId: String? = null, val error: Int? = null, val sessionId: String? = null)
+internal fun acceptsPanoramaShare(sessionId: String?, state: HostState) =
+    sessionId != null && state.running && state.sessionId == sessionId
+data class SelectedPanoramaPhoto(val share: PanoramaPhotoShare, val uri: Uri)
+data class SelectedPanoramaVideo(val share: PanoramaVideoShare, val uri: Uri, val motionBytes: ByteArray? = null)
 
 object HostRuntime {
     val state = MutableStateFlow(HostState())
     val authority = PairingAuthority()
     val pairingMutex = Mutex()
+    val panoramaPhoto = MutableStateFlow<SelectedPanoramaPhoto?>(null)
+    val panoramaVideo = MutableStateFlow<SelectedPanoramaVideo?>(null)
 }
 
 class HostService : Service() {
@@ -46,10 +53,9 @@ class HostService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel("host", "Questとの接続", NotificationManager.IMPORTANCE_LOW))
-        startForeground(1, notification("Questを待っています"))
-        HostRuntime.state.value = HostState(running = true)
+        updateNotificationChannel()
+        startForeground(1, notification(getString(R.string.notify_waiting)))
+        HostRuntime.state.value = HostState(running = true, sessionId = UUID.randomUUID().toString())
         app.library.refresh()
         scope.launch {
             app.database.dao().observePeers().collect {
@@ -57,9 +63,11 @@ class HostService : Service() {
             }
         }
         scope.launch {
-            HostRuntime.authority.pending.collect { requests ->
+            combine(HostRuntime.authority.pending, HostRuntime.panoramaPhoto, HostRuntime.panoramaVideo) { requests, photo, video ->
+                if (requests.isNotEmpty()) R.string.notify_code else if (video != null) R.string.notify_video_sharing else if (photo != null) R.string.notify_sharing else R.string.notify_waiting
+            }.collect { message ->
                 getSystemService(NotificationManager::class.java).notify(1,
-                    notification(if (requests.isEmpty()) "Questを待っています" else "接続番号を確認してください"))
+                    notification(getString(message)))
             }
         }
         scope.launch {
@@ -74,7 +82,8 @@ class HostService : Service() {
                         connected = { count ->
                             lastClientAt = System.currentTimeMillis()
                             HostRuntime.state.update { it.copy(clients = count, viewingId = if (count == 0) null else it.viewingId) }
-                        }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } })
+                        }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } },
+                        panorama = panoramaSource(), video = videoSource())
                 }
                 server = engine
                 withContext(Dispatchers.IO) { engine.start(wait = false) }
@@ -82,13 +91,51 @@ class HostService : Service() {
                 HostRuntime.state.update { it.copy(port = port, addresses = addresses().map { address -> "$address:$port" }) }
                 advertise(port)
                 launch { app.library.photos.drop(1).collect { events.emit(Event("library_changed")) } }
+                launch { HostRuntime.panoramaPhoto.collect { events.emit(Event("panorama_changed")) } }
+                launch { HostRuntime.panoramaVideo.collect { events.emit(Event("panorama_video_changed")) } }
                 while (isActive) {
                     delay(30_000)
                     if (HostRuntime.state.value.clients > 0) lastClientAt = System.currentTimeMillis()
                     if (System.currentTimeMillis() - lastClientAt > 10 * 60_000) { stopSelf(); break }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { HostRuntime.state.value = HostState(error = "接続を開始できませんでした。Wi-Fiを確認してください"); stopSelf() }
+            catch (_: Exception) { HostRuntime.state.value = HostState(error = R.string.host_wifi_error); stopSelf() }
+        }
+    }
+
+    private fun panoramaSource() = object : PanoramaPhotoSource {
+        override suspend fun current() = HostRuntime.panoramaPhoto.value?.share
+        override suspend fun open(id: String): java.io.InputStream? {
+            val selected = HostRuntime.panoramaPhoto.value?.takeIf { it.share.id == id } ?: return null
+            return try { contentResolver.openInputStream(selected.uri) }
+            catch (_: SecurityException) {
+                HostRuntime.panoramaPhoto.compareAndSet(selected, null)
+                null
+            } catch (_: java.io.FileNotFoundException) {
+                HostRuntime.panoramaPhoto.compareAndSet(selected, null)
+                null
+            }
+        }
+    }
+
+    private fun videoSource() = object : PanoramaVideoSource {
+        override suspend fun current() = HostRuntime.panoramaVideo.value?.share
+        override suspend fun motion(id: String): ByteArray? = HostRuntime.panoramaVideo.value
+            ?.takeIf { it.share.id == id }?.motionBytes
+        override suspend fun open(id: String, offset: Long): java.io.InputStream? {
+            val selected = HostRuntime.panoramaVideo.value?.takeIf { it.share.id == id } ?: return null
+            return try {
+                val asset = contentResolver.openAssetFileDescriptor(selected.uri, "r") ?: return null
+                try {
+                    val input = asset.createInputStream()
+                    try { input.channel.position(Math.addExact(asset.startOffset, offset)); input }
+                    catch (error: Exception) { input.close(); throw error }
+                } catch (error: Exception) { asset.close(); throw error }
+            } catch (_: SecurityException) {
+                HostRuntime.panoramaVideo.compareAndSet(selected, null); null
+            } catch (_: java.io.IOException) {
+                HostRuntime.panoramaVideo.compareAndSet(selected, null); null
+            }
         }
     }
 
@@ -123,7 +170,7 @@ class HostService : Service() {
                 if (destroyed) runCatching { nsd.unregisterService(this) } else announced = true
             }
             override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                if (!destroyed) HostRuntime.state.update { it.copy(error = "自動検出を開始できませんでした。Questで表示されたアドレスを入力してください") }
+                if (!destroyed) HostRuntime.state.update { it.copy(error = R.string.host_discovery_error) }
             }
             override fun onServiceUnregistered(info: NsdServiceInfo) { announced = false }
             override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
@@ -136,7 +183,19 @@ class HostService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, HostService::class.java).setAction("stop"), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, "host").setSmallIcon(R.drawable.ic_launcher).setContentTitle("Okuyuki")
-            .setContentText(message).setContentIntent(open).setOngoing(true).addAction(0, "接続をオフ", stop).build()
+            .setContentText(message).setContentIntent(open).setOngoing(true).addAction(0, getString(R.string.notify_stop), stop).build()
+    }
+    private fun updateNotificationChannel() {
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel("host", getString(R.string.notify_channel), NotificationManager.IMPORTANCE_LOW))
+    }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateNotificationChannel()
+        val message = if (HostRuntime.authority.pending.value.isNotEmpty()) R.string.notify_code
+            else if (HostRuntime.panoramaVideo.value != null) R.string.notify_video_sharing
+            else if (HostRuntime.panoramaPhoto.value != null) R.string.notify_sharing else R.string.notify_waiting
+        getSystemService(NotificationManager::class.java).notify(1, notification(getString(message)))
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") stopSelf()
@@ -145,6 +204,8 @@ class HostService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         destroyed = true
+        HostRuntime.panoramaPhoto.value = null
+        HostRuntime.panoramaVideo.value = null
         scope.cancel()
         if (announced) registration?.let { runCatching { getSystemService(NsdManager::class.java).unregisterService(it) } }
         server?.stop(0, 300)
