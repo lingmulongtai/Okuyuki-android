@@ -14,8 +14,34 @@ internal class FrameTimestampMap(private val capacity: Int = 128) {
         timestamps[releaseNs] = if (timestamps.containsKey(releaseNs)) null else presentationUs
         while (timestamps.size > capacity) timestamps.remove(timestamps.keys.first())
     }
-    @Synchronized fun take(releaseNs: Long): Long? = timestamps.remove(releaseNs)
+    @Synchronized fun lookup(releaseNs: Long): Long? = timestamps[releaseNs]
+    @Synchronized fun contains(releaseNs: Long): Boolean = timestamps.containsKey(releaseNs)
     @Synchronized fun clear() = timestamps.clear()
+}
+
+internal data class MatchedCorrection(val correction: FloatArray?, val waiting: Boolean)
+
+/** GL-thread state: redraws reuse a verified mapping, while seeks wait for a new frame. */
+internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap, private val stabilization: OsmoStabilization) {
+    private var lastTimestamp = Long.MIN_VALUE
+    private var lastPresentation: Long? = null
+    private var lastCorrection: FloatArray? = null
+    private var waitingForTimestamp: Long? = null
+    fun resetSurface() { lastTimestamp = Long.MIN_VALUE; lastPresentation = null; lastCorrection = null; waitingForTimestamp = null }
+    fun beginSeek() { waitingForTimestamp = lastTimestamp }
+    fun frame(timestamp: Long): MatchedCorrection {
+        val waiting = waitingForTimestamp == timestamp && !timestamps.contains(timestamp)
+        if (!waiting) {
+            val repeatedSeekTimestamp = waitingForTimestamp == timestamp && timestamps.contains(timestamp)
+            waitingForTimestamp = null
+            val presentation = if (repeatedSeekTimestamp) null else timestamps.lookup(timestamp)
+            if (timestamp != lastTimestamp || presentation != lastPresentation) {
+                lastCorrection = presentation?.let(stabilization::correctionAt)
+                lastTimestamp = timestamp; lastPresentation = presentation
+            }
+        }
+        return MatchedCorrection(lastCorrection, waiting)
+    }
 }
 
 /** Causal rotational smoothing in the Osmo body frame; corrections are w,x,y,z. */
