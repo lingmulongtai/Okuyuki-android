@@ -182,28 +182,38 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             }
                         }
                     }
-                    1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text(stringResource(R.string.connect_quest), style = MaterialTheme.typography.titleLarge); Text(stringResource(R.string.same_wifi)) }
-                            Switch(checked = host.running, onCheckedChange = toggleHost)
+                    1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(stringResource(R.string.connect_quest), style = MaterialTheme.typography.titleLarge)
+                                    Text(stringResource(R.string.same_wifi), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(checked = host.running, onCheckedChange = toggleHost)
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
+                            Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off), style = MaterialTheme.typography.bodyMedium)
+                            if (!app.library.hasPermission()) FilledTonalButton(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
                         }
-                        if (!app.library.hasPermission()) Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
-                        if (sharedPanorama != null) {
-                            Text(stringResource(R.string.panorama_shared))
-                            OutlinedButton(onClick = { HostRuntime.panoramaPhoto.value = null }) { Text(stringResource(R.string.panorama_stop_share)) }
+                        if (sharedPanorama != null || sharedVideo != null) GlassPanel(Modifier.fillMaxWidth()) {
+                            if (sharedPanorama != null) {
+                                Text(stringResource(R.string.panorama_shared))
+                                OutlinedButton(onClick = { HostRuntime.panoramaPhoto.value = null }) { Text(stringResource(R.string.panorama_stop_share)) }
+                            }
+                            if (sharedVideo != null) {
+                                Text(stringResource(R.string.panorama_video_shared))
+                                OutlinedButton(onClick = { HostRuntime.panoramaVideo.value = null }) { Text(stringResource(R.string.panorama_video_stop_share)) }
+                            }
                         }
-                        if (sharedVideo != null) {
-                            Text(stringResource(R.string.panorama_video_shared))
-                            OutlinedButton(onClick = { HostRuntime.panoramaVideo.value = null }) { Text(stringResource(R.string.panorama_video_stop_share)) }
-                        }
-                        Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off))
-                        if (host.addresses.isNotEmpty()) {
+                        if (host.addresses.isNotEmpty()) GlassPanel(Modifier.fillMaxWidth()) {
                             Text(stringResource(R.string.manual_title), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.manual_body))
+                            Text(stringResource(R.string.manual_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             host.addresses.forEach { Text(it, style = MaterialTheme.typography.titleLarge) }
                         }
-                        Text(stringResource(R.string.privacy))
-                        Text(stringResource(R.string.timeout), style = MaterialTheme.typography.bodySmall)
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.privacy), style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.timeout), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
