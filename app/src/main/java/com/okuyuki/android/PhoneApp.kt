@@ -41,7 +41,7 @@ import java.util.Locale
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
     val updater = rememberAppUpdates()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
+    var detail by remember { mutableStateOf<IndexedMedia?>(null) }
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
     var panoramaPhoto by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoProxy by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -118,7 +118,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                                         HostRuntime.authority.prepareApproval(request.requestId)?.let { peer ->
                                             val dao = app.database.dao()
                                             val previous = dao.peers().firstOrNull { it.clientId == peer.clientId }
-                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash))
+                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash, peer.kind))
                                             refreshAuthority(dao)
                                             if (!HostRuntime.authority.completeApproval(request.requestId, peer)) {
                                                 if (previous == null) dao.deletePeer(peer.clientId) else dao.savePeer(previous)
@@ -318,7 +318,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     }
 }
 
-@Composable private fun PhoneThumbnail(app: OkuyukiApplication, photo: IndexedPhoto, modifier: Modifier) {
+@Composable private fun PhoneThumbnail(app: OkuyukiApplication, photo: IndexedMedia, modifier: Modifier) {
     val bitmap by produceState<Bitmap?>(null, photo.id, photo.modified) {
         value = withContext(Dispatchers.IO) { runCatching { app.contentResolver.loadThumbnail(app.library.uri(photo.id), Size(512, 512), null) }.getOrNull() }
     }
@@ -329,5 +329,5 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
 
 private fun date(time: Long, locale: Locale) = SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMM d E"), locale).format(Date(time))
 private suspend fun refreshAuthority(dao: LibraryDao) {
-    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
+    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash, it.kind) })
 }
