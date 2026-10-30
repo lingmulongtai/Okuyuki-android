@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
@@ -189,8 +190,10 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                                             if (media.isVideo) Text("▶ ${duration(media.durationMs)}", Modifier.align(Alignment.BottomEnd).padding(6.dp)
                                                 .background(Color(0x99000000), RoundedCornerShape(50)).padding(horizontal = 6.dp, vertical = 2.dp),
                                                 color = Color.White, style = MaterialTheme.typography.labelSmall)
-                                            if (host.viewingId == media.id.toString()) Surface(Modifier.align(Alignment.BottomStart).padding(6.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
-                                                Text(stringResource(viewingLabel(host)), Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            // On top, so it never covers a video's length in the bottom corner.
+                                            if (host.viewingId == media.id.toString()) Surface(Modifier.align(Alignment.TopStart).padding(6.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
+                                                Text(stringResource(viewingLabel(host)), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
                                     }
