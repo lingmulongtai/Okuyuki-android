@@ -93,4 +93,5 @@
     <string name="osv_experimental">Experimental direct playback uses two 4K video streams. Misalignment and seams may occur. Lens and stabilization corrections are not available.</string>
     <string name="osv_error">Could not play this OSV. The device may not support two simultaneous 4K HEVC streams.</string>
     <string name="osmo_calibrated">Experimental lens-calibrated preview. Alignment may vary by recording mode. Stabilization is not applied.</string>
+    <string name="osv_calibrated">Experimental lens calibration applied; stabilization is not available.</string>
 </resources>

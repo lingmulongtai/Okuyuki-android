@@ -93,4 +93,5 @@
     <string name="osv_experimental">実験的な直接再生です。2つの4K映像を使用し、映像のずれやつなぎ目が生じます。レンズ・手ぶれ補正は未対応です。</string>
     <string name="osv_error">OSVを再生できませんでした。端末が2つの4K HEVC映像を同時に再生できない場合があります。</string>
     <string name="osmo_calibrated">カメラのレンズ校正値を使う実験的な表示です。撮影モードやつなぎ目にずれが出る場合があります。手ぶれ補正は未対応です。</string>
+    <string name="osv_calibrated">レンズ校正を適用中（実験的）。手ぶれ補正は未対応です。</string>
 </resources>

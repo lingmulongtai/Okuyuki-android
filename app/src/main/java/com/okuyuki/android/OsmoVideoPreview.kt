@@ -20,6 +20,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -27,6 +29,27 @@ import kotlin.math.abs
 fun OsmoVideoPreview(uri: Uri, onClose: () -> Unit) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    var loaded by remember(uri) { mutableStateOf(false) }
+    var calibration by remember(uri) { mutableStateOf<OsmoCalibration?>(null) }
+    LaunchedEffect(uri) {
+        calibration = withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { asset ->
+                    asset.createInputStream().use { input ->
+                        val available = input.channel.size() - asset.startOffset
+                        val length = if (asset.declaredLength >= 0) asset.declaredLength else available
+                        OsmoCalibrationReader.read(input.channel, asset.startOffset, length, com.okuyuki.protocol.PanoramaVideoFormat.OSMO_OSV)
+                    }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { null }
+        }
+        loaded = true
+    }
+    if (!loaded) {
+        Dialog(onDismissRequest = onClose) { Surface { CircularProgressIndicator(Modifier.padding(24.dp)) } }
+        return
+    }
     var failed by remember(uri) { mutableStateOf(false) }
     var wantPlaying by remember(uri) { mutableStateOf(true) }
     var syncReady by remember(uri) { mutableStateOf(false) }
@@ -44,7 +67,7 @@ fun OsmoVideoPreview(uri: Uri, onClose: () -> Unit) {
             }
         }
     }
-    val view = remember(players) { DualTrackFisheyeView(context, players) { failed = true } }
+    val view = remember(players) { DualTrackFisheyeView(context, players, calibration) { failed = true } }
     DisposableEffect(owner, players, view) {
         val listeners = players.mapIndexed { playerIndex, player ->
             object : Player.Listener {
@@ -109,7 +132,7 @@ fun OsmoVideoPreview(uri: Uri, onClose: () -> Unit) {
         Surface(shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.osv_preview), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(R.string.osv_experimental), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(if (calibration != null) R.string.osv_calibrated else R.string.osv_experimental), style = MaterialTheme.typography.bodySmall)
                 AndroidView(factory = { view }, modifier = Modifier.fillMaxWidth().height(280.dp))
                 if (failed) Text(stringResource(R.string.osv_error), color = MaterialTheme.colorScheme.error)
                 Slider(value = position.toFloat().coerceIn(0f, duration.coerceAtLeast(1L).toFloat()),
