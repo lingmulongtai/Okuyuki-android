@@ -25,6 +25,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 
 private sealed interface CalibrationLoad {
     data object Loading : CalibrationLoad
@@ -38,14 +39,15 @@ fun OsmoProxyPreview(uri: Uri, onClose: () -> Unit) {
     var calibrationResult by remember(uri) { mutableStateOf<CalibrationLoad>(CalibrationLoad.Loading) }
     LaunchedEffect(uri) {
         val result = withContext(Dispatchers.IO) {
+            val workContext = coroutineContext
             try {
                 context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { asset ->
                     asset.createInputStream().use { input ->
                         val available = input.channel.size() - asset.startOffset
                         val length = if (asset.declaredLength >= 0) asset.declaredLength else available
                         val calibration = OsmoCalibrationReader.read(input.channel, asset.startOffset, length)
-                        val motion = OsmoMotionReader.read(input.channel, asset.startOffset, length, com.okuyuki.protocol.PanoramaVideoFormat.OSMO_LRF)
-                        calibration to motion?.let(::OsmoStabilization)
+                        val motion = OsmoMotionReader.read(input.channel, asset.startOffset, length, com.okuyuki.protocol.PanoramaVideoFormat.OSMO_LRF) { workContext.ensureActive() }
+                        calibration to motion?.let { OsmoStabilization(it) { workContext.ensureActive() } }
                     }
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }

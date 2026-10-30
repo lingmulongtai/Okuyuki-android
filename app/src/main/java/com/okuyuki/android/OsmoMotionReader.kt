@@ -3,22 +3,25 @@ package com.okuyuki.android
 import com.okuyuki.protocol.PanoramaVideoFormat
 import com.okuyuki.protocol.OsmoMotionTrack
 import com.okuyuki.protocol.PackedMotionFrames
+import com.okuyuki.protocol.OsmoMotionCodec
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import kotlin.math.sqrt
+import java.util.concurrent.CancellationException
 
 /** Strictly accepts the simple, aligned sample tables verified in Osmo 360 files. */
 internal object OsmoMotionReader {
     private const val MAX_MOOV = 64 * 1024 * 1024
     private const val MAX_SAMPLE = 1024 * 1024
-    private const val MAX_SAMPLES = 50000
-    private const val MAX_METADATA = 64L * 1024 * 1024
+    private const val MAX_SAMPLES = OsmoMotionCodec.MAX_FRAMES
+    private const val MAX_METADATA = 512L * 1024 * 1024
     private data class Track(val kind: String, val timescale: Long, val delta: Long,
         val count: Int, val editDuration: Long, val offsets: LongArray, val sizes: IntArray)
     private val reader = OsmoCalibrationReader
 
-    fun read(channel: FileChannel, start: Long, length: Long, format: PanoramaVideoFormat): OsmoMotionTrack? = try {
+    fun read(channel: FileChannel, start: Long, length: Long, format: PanoramaVideoFormat,
+        checkActive: () -> Unit = {}): OsmoMotionTrack? = try {
         require(format == PanoramaVideoFormat.OSMO_LRF || format == PanoramaVideoFormat.OSMO_OSV)
         require(start >= 0 && length >= 8 && start <= channel.size() - length)
         fun readAt(offset: Long, size: Int): ByteArray {
@@ -87,6 +90,7 @@ internal object OsmoMotionReader {
             val sizes = IntArray(offsets.size)
             var total = 0L
             for (i in offsets.indices) {
+                if (i % 1024 == 0) checkActive()
                 val size = if (defaultSize == 0L) number(stsz, 12 + i * 4) else defaultSize
                 require(size in 1..MAX_SAMPLE.toLong())
                 val offset = if (chunks.type == "stco") number(chunks, 8 + i * 4)
@@ -118,15 +122,24 @@ internal object OsmoMotionReader {
             val frames = PackedMotionFrames.Builder(metadata.count)
             var valid = true
             for (i in 0 until metadata.count) {
+                if (i % 1024 == 0) checkActive()
                 val attitude = parseAttitude(if (i == 0) firstSample else readAt(metadata.offsets[i], metadata.sizes[i]))
                 if (attitude == null) { valid = false; break }
-                val time = Math.multiplyExact(Math.multiplyExact(i.toLong(), metadata.delta), 1000000L) / metadata.timescale
+                val time = timestampUs(i.toLong(), metadata.delta, metadata.timescale)
                 frames.add(time, attitude[0], attitude[1], attitude[2], attitude[3])
             }
             if (valid) return OsmoMotionTrack(frames.build(), metadata.delta * 1000000L / metadata.timescale)
         }
         null
-    } catch (_: Exception) { null }
+    } catch (cancelled: CancellationException) { throw cancelled }
+    catch (_: Exception) { null }
+
+    internal fun timestampUs(index: Long, delta: Long, timescale: Long): Long {
+        require(index >= 0 && delta > 0 && timescale > 0)
+        val ticks = Math.multiplyExact(index, delta)
+        return Math.addExact(Math.multiplyExact(ticks / timescale, 1_000_000L),
+            Math.multiplyExact(ticks % timescale, 1_000_000L) / timescale)
+    }
 
     internal fun parseAttitude(sample: ByteArray): List<Float>? = try {
         val frame = requireNotNull(reader.message(reader.fields(sample), 3))

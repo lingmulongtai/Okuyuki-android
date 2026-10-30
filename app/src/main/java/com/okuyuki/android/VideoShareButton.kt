@@ -16,6 +16,7 @@ import com.okuyuki.protocol.OsmoMotionCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 import java.util.UUID
 
 @Composable
@@ -32,6 +33,7 @@ fun VideoShareButton(uri: Uri, format: PanoramaVideoFormat, enabled: Boolean = t
         scope.launch {
             try {
                 val selected = withContext(Dispatchers.IO) {
+                    val workContext = coroutineContext
                     try {
                         val length = context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use {
                             if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else null
@@ -44,8 +46,9 @@ fun VideoShareButton(uri: Uri, format: PanoramaVideoFormat, enabled: Boolean = t
                                     OsmoCalibrationReader.read(input.channel, asset.startOffset, length, format)?.toShareCalibration()
                                 } else null
                                 val motion = if (format != PanoramaVideoFormat.EQUIRECTANGULAR_MP4) {
-                                    OsmoMotionReader.read(input.channel, asset.startOffset, length, format)
-                                        ?.takeIf(OsmoMotionCodec::isValid)?.let(OsmoMotionCodec::encode)
+                                    val track = OsmoMotionReader.read(input.channel, asset.startOffset, length, format) { workContext.ensureActive() }
+                                    try { track?.let { OsmoMotionCodec.encode(it) { workContext.ensureActive() } } }
+                                    catch (_: IllegalArgumentException) { null }
                                 } else null
                                 Triple(length, calibration, motion)
                             }
