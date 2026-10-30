@@ -70,6 +70,7 @@ fun OsmoVideoPreview(uri: Uri, onClose: () -> Unit) {
                     expectedIndices[playerIndex] = item.index
                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                         .setOverrideForType(TrackSelectionOverride(group, item.index)).build()
+                    selected[playerIndex] = player.currentTracks.groups.any { it.mediaTrackGroup == group && it.isTrackSelected(item.index) }
                 }
             }.also { player.addListener(it) }
         }
