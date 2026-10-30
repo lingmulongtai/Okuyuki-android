@@ -147,35 +147,38 @@ fun Application.photoApi(
                 }
             }
         }
-        get("/v2/panorama/video") {
-            if (!permitted(call)) return@get
-            call.response.header(HttpHeaders.CacheControl, "no-store")
-            val item = video?.current()?.takeIf { it.isValid() }
-            if (item == null) call.respond(HttpStatusCode.NoContent) else call.respond(item)
-        }
-        get("/v2/panorama/video/{id}") {
-            if (!permitted(call)) return@get
-            val source = video ?: run { call.respond(HttpStatusCode.NotFound); return@get }
-            val item = source.current()?.takeIf { it.isValid() && it.id == call.parameters["id"] }
-                ?: run { call.respond(HttpStatusCode.NotFound); return@get }
-            val authorization = call.request.headers[HttpHeaders.Authorization]
-            val header = call.request.headers[HttpHeaders.Range]
-            val range = ByteRange.parse(header, item.sizeBytes)
-            call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.response.header(HttpHeaders.AcceptRanges, "bytes")
-            if (range == null) {
-                call.response.header(HttpHeaders.ContentRange, "bytes */${item.sizeBytes}")
-                call.respond(HttpStatusCode.RequestedRangeNotSatisfiable); return@get
+        for (prefix in listOf("/v2", "/v3")) {
+            val legacy = prefix == "/v2"
+            get("$prefix/panorama/video") {
+                if (!permitted(call)) return@get
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                val item = video?.current()?.takeIf { it.isValid() && (!legacy || it.format == PanoramaVideoFormat.EQUIRECTANGULAR_MP4) }
+                if (item == null) call.respond(HttpStatusCode.NoContent) else call.respond(item)
             }
-            if (header != null) call.response.header(HttpHeaders.ContentRange, "bytes ${range.first}-${range.last}/${item.sizeBytes}")
-            call.response.header(HttpHeaders.ContentLength, range.length.toString())
-            call.respondOutputStream(ContentType.Video.MP4, if (header == null) HttpStatusCode.OK else HttpStatusCode.PartialContent) {
-                withContext(Dispatchers.IO) {
-                    videoTransfers.withPermit {
-                        check(authority.authorized(authorization) && source.current() == item) { "Share ended" }
-                        val input = source.open(item.id, range.first) ?: throw java.io.FileNotFoundException()
-                        copyPanorama(input, this@respondOutputStream, range.length) {
-                            authority.authorized(authorization) && source.current() == item
+            get("$prefix/panorama/video/{id}") {
+                if (!permitted(call)) return@get
+                val source = video ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+                val item = source.current()?.takeIf { it.isValid() && it.id == call.parameters["id"] && (!legacy || it.format == PanoramaVideoFormat.EQUIRECTANGULAR_MP4) }
+                    ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+                val authorization = call.request.headers[HttpHeaders.Authorization]
+                val header = call.request.headers[HttpHeaders.Range]
+                val range = ByteRange.parse(header, item.sizeBytes)
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                call.response.header(HttpHeaders.AcceptRanges, "bytes")
+                if (range == null) {
+                    call.response.header(HttpHeaders.ContentRange, "bytes */${item.sizeBytes}")
+                    call.respond(HttpStatusCode.RequestedRangeNotSatisfiable); return@get
+                }
+                if (header != null) call.response.header(HttpHeaders.ContentRange, "bytes ${range.first}-${range.last}/${item.sizeBytes}")
+                call.response.header(HttpHeaders.ContentLength, range.length.toString())
+                call.respondOutputStream(ContentType.Video.MP4, if (header == null) HttpStatusCode.OK else HttpStatusCode.PartialContent) {
+                    withContext(Dispatchers.IO) {
+                        videoTransfers.withPermit {
+                            check(authority.authorized(authorization) && source.current() == item) { "Share ended" }
+                            val input = source.open(item.id, range.first) ?: throw java.io.FileNotFoundException()
+                            copyPanorama(input, this@respondOutputStream, range.length) {
+                                authority.authorized(authorization) && source.current() == item
+                            }
                         }
                     }
                 }
