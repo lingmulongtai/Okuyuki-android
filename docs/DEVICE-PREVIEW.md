@@ -1,8 +1,8 @@
 # Galaxy・Quest 実機テスト用プレビュー
 
-両アプリの **v0.1.0-alpha.12-preview** を組み合わせてください。長尺動画の共有・補正には両方の更新が必要です。GalaxyはAndroid 16以降、Quest 3／3Sは開発者モードとUSBデバッグが必要です。この版は実験段階で、Galaxy・Quest実機での動作は未確認です。
+Android の **v0.1.0-alpha.13-preview** と Quest の **v0.1.0-alpha.12-preview** を組み合わせてください。GalaxyはAndroid 16以降、Quest 3／3Sは開発者モードとUSBデバッグが必要です。この版は実験段階で、Galaxy・Quest実機での動作は未確認です。
 
-1. [Galaxy用APK](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.12-preview/Okuyuki-android-v0.1.0-alpha.12-preview.apk)をGalaxyに、[Quest用APK](https://github.com/lingmulongtai/Okuyuki-quest/releases/download/v0.1.0-alpha.12-preview/Okuyuki-quest-v0.1.0-alpha.12-preview.apk)をWindows PCにダウンロードします。GalaxyでAPKを開き、必要に応じてインストール元を許可して更新します。
+1. [Galaxy用APK](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.13-preview/Okuyuki-android-v0.1.0-alpha.13-preview.apk)をGalaxyに、[Quest用APK](https://github.com/lingmulongtai/Okuyuki-quest/releases/download/v0.1.0-alpha.12-preview/Okuyuki-quest-v0.1.0-alpha.12-preview.apk)をWindows PCにダウンロードします。GalaxyでAPKを開き、必要に応じてインストール元を許可して更新します。
 2. Questで開発者モードを有効にし、PCにUSB接続してヘッドセット内でUSBデバッグを許可します。PowerShellで次を実行します。`QUEST_SERIAL` は `devices -l` に表示されるQuestのシリアル番号です。
 
    ```powershell
@@ -11,7 +11,7 @@
    & $adb -s "QUEST_SERIAL" install -r "$env:USERPROFILE\Downloads\Okuyuki-quest-v0.1.0-alpha.12-preview.apk"
    ```
 
-3. Questのアプリライブラリで「提供元不明」からOkuyuki Questを開きます。GalaxyとQuestを同じWi-Fiに接続し、Galaxyの「Quest」タブで接続待機をオンにします。Questでスマホを選び、両画面の4桁の番号を確認してGalaxyで承認します。自動検出されない場合はGalaxyに表示されたIPアドレスとポートをQuestに入力します。
+3. Questのアプリライブラリで「提供元不明」からOkuyuki Questを開きます。GalaxyとQuestを同じWi-Fiに接続し、Galaxyの「接続」タブで待機をオンにします。Questでスマホを選び、両画面の4桁の番号を確認してGalaxyで承認します。自動検出されない場合はGalaxyに表示されたIPアドレスとポートをQuestに入力します。
 4. Galaxyの「ライブラリ」→「360°メディアを開く」で結合済みの2:1の360°写真・MP4、または「Osmo 360 LRF・OSVを開く」からLRF・OSVを選び、「Questに共有」を押します。Questで共有中の写真または動画を開きます。共有中は元ファイルを編集・置換しないでください。終了時はGalaxyで共有終了、または接続待機をオフにします。
 5. 対応するLRF・OSVでは「手ぶれ補正（実験的）」をオンにして、GalaxyとQuestのプレビューで回転の平滑化を試せます。Questでは同じ設定が「没入表示を試す（実験的）」にも引き継がれます。映像と姿勢の時刻を照合できない場合、補正は自動でオフになります。再生、一時停止、シーク、前後左右への視点移動も確認してください。
 6. 結合済み360° MP4、LRF、OSVは、Questの動画画面から頭の向きに追従する没入表示を試せます。OSVの没入表示には「高画質」（4096×2048）も選べます。開始時に対応できない場合は標準画質を試します。再生が重い・途中で停止する場合は、高画質をオフにして開き直してください。表示方向や継ぎ目に違和感がある場合は使用を中止し、戻る操作で終了してください。360°写真の没入表示には未対応です。

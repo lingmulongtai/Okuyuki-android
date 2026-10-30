@@ -41,7 +41,7 @@ import java.util.Locale
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
     val updater = rememberAppUpdates()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
+    var detail by remember { mutableStateOf<IndexedMedia?>(null) }
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
     var panoramaPhoto by remember { mutableStateOf<android.net.Uri?>(null) }
     var osmoProxy by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -101,8 +101,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
             bottomBar = { PhoneNavigation(tab) { tab = it } }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 PhoneHeader(
-                    title = if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else stringResource(R.string.settings),
-                    status = if (host.clients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
+                    title = if (tab == 0) "Okuyuki" else if (tab == 1) stringResource(R.string.devices) else stringResource(R.string.settings),
+                    status = if (host.clients > 0 || host.tvClients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
                     onStatusClick = { tab = 1 },
                 )
                 host.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error) }
@@ -118,7 +118,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                                         HostRuntime.authority.prepareApproval(request.requestId)?.let { peer ->
                                             val dao = app.database.dao()
                                             val previous = dao.peers().firstOrNull { it.clientId == peer.clientId }
-                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash))
+                                            dao.savePeer(PairedPeer(peer.clientId, peer.name, peer.tokenHash, peer.kind))
                                             refreshAuthority(dao)
                                             if (!HostRuntime.authority.completeApproval(request.requestId, peer)) {
                                                 if (previous == null) dao.deletePeer(peer.clientId) else dao.savePeer(previous)
@@ -193,7 +193,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
                             Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off), style = MaterialTheme.typography.bodyMedium)
-                            if (!app.library.hasPermission()) FilledTonalButton(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
+                            if (host.tvClients > 0) Text(stringResource(R.string.tv_connected), style = MaterialTheme.typography.bodyMedium)
+                            if (!app.library.hasFullMediaPermission()) FilledTonalButton(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
                         }
                         if (sharedPanorama != null || sharedVideo != null) GlassPanel(Modifier.fillMaxWidth()) {
                             if (sharedPanorama != null) {
@@ -318,7 +319,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     }
 }
 
-@Composable private fun PhoneThumbnail(app: OkuyukiApplication, photo: IndexedPhoto, modifier: Modifier) {
+@Composable private fun PhoneThumbnail(app: OkuyukiApplication, photo: IndexedMedia, modifier: Modifier) {
     val bitmap by produceState<Bitmap?>(null, photo.id, photo.modified) {
         value = withContext(Dispatchers.IO) { runCatching { app.contentResolver.loadThumbnail(app.library.uri(photo.id), Size(512, 512), null) }.getOrNull() }
     }
@@ -329,5 +330,5 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
 
 private fun date(time: Long, locale: Locale) = SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMM d E"), locale).format(Date(time))
 private suspend fun refreshAuthority(dao: LibraryDao) {
-    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash) })
+    HostRuntime.authority.setPeers(dao.peers().map { ApprovedPeer(it.clientId, it.name, it.tokenHash, it.kind) })
 }

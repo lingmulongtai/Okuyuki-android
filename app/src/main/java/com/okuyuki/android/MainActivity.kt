@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent { PhoneApp(app, requestPhotos = {
-            photosPermission.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
+            photosPermission.launch(com.okuyuki.android.library.PhotoLibrary.MEDIA_PERMISSIONS)
         }, toggleHost = { enabled ->
             if (enabled) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             else stopService(Intent(this, com.okuyuki.android.host.HostService::class.java))

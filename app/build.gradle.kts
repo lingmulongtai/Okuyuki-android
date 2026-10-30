@@ -11,8 +11,8 @@ android {
         applicationId = "com.okuyuki.android"
         minSdk = 36
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.1.0-alpha.12-preview"
+        versionCode = 13
+        versionName = "0.1.0-alpha.13-preview"
         ndk { abiFilters += "arm64-v8a" }
     }
     signingConfigs {
@@ -62,5 +62,11 @@ dependencies {
     implementation("androidx.room:room-ktx:2.8.4")
     ksp("androidx.room:room-compiler:2.8.4")
     testImplementation("io.ktor:ktor-server-test-host:3.3.1")
+    testImplementation("org.xerial:sqlite-jdbc:3.41.2.2")
+
+    // TV: 4K stills and video conversion.
+    implementation("androidx.media3:media3-transformer:1.11.1")
+    implementation("androidx.media3:media3-effect:1.11.1")
+    implementation("androidx.media3:media3-common:1.11.1")
 
 }

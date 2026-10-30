@@ -10,16 +10,16 @@ Project: https://github.com/users/lingmulongtai/projects/2
 
 **開発版で360°写真・動画の共有を試す場合:** [Galaxy・Quest実機テスト用プレビュー](docs/DEVICE-PREVIEW.md)をご覧ください。
 
-配布中のアルファは **v0.1.0-alpha.12-preview** です。Galaxyは **Android 16** が必要です。
+Android のプレビューは **v0.1.0-alpha.13-preview**、Quest は **v0.1.0-alpha.12-preview** です。Galaxyは **Android 16** が必要です。
 
 | 入れる端末 | APKの直接ダウンロード | 保存先 |
 | --- | --- | --- |
-| Galaxy | [Android版APK](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.12-preview/Okuyuki-android-v0.1.0-alpha.12-preview.apk) | Galaxy |
+| Galaxy | [Android版APK](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.13-preview/Okuyuki-android-v0.1.0-alpha.13-preview.apk) | Galaxy |
 | Quest 3S／3 | [Quest版APK](https://github.com/lingmulongtai/Okuyuki-quest/releases/download/v0.1.0-alpha.12-preview/Okuyuki-quest-v0.1.0-alpha.12-preview.apk) | Windows PC |
 
 1. **Galaxy**: Android版APKを開き、インストール元の許可を与えて入れます。Okuyukiの写真アクセスを許可し、ライブラリに試したい3D写真があることを確認します。
 2. **Quest**: Meta Horizonアプリで開発者モードをオンにし、PCとUSB接続してQuest内のUSBデバッグを許可します。PCからADBでQuest版APKを入れ、アプリライブラリーの「提供元不明」から **Okuyuki Quest** を開きます。
-3. **接続**: 両端末を同じWi-Fiに接続します。Galaxyの「Quest」タブで **「Questとつなぐ」をオン** にし、Questでスマホを選びます。見つからない場合はGalaxyの **IPアドレス:ポート** をQuestに入力します。
+3. **接続**: 両端末を同じWi-Fiに接続します。Galaxyの「接続」タブで待機をオンにし、Questでスマホを選びます。見つからない場合はGalaxyの **IPアドレス:ポート** をQuestに入力します。
 4. **承認と閲覧**: 両画面の4桁の番号が同じことを確認し、Galaxyで「許可」を押します。Questの一覧から写真を選びます。終了時はQuestアプリを閉じ、Galaxyの待機をオフにします。
 
 **[初回の設定から詳しく読む → インストール・接続ガイド](docs/INSTALL.md)**
@@ -31,6 +31,8 @@ Project: https://github.com/users/lingmulongtai/projects/2
 ## このプレビューで試せる機能
 
 以下は実機検証前の実験機能です。
+
+LG webOS テレビは、Android の「接続」をオンにして同じ Wi-Fi のテレビに表示アドレスを入力し、4 桁の番号を両画面で確認して接続できます。写真・動画の権限を許可してください。[TV 版のセットアップと既知の制限](https://github.com/lingmulongtai/Okuyuki-webos/blob/codex/webos-connection/docs/TV.md)。Galaxy とテレビの実機での接続・再生・4K 出力は未検証です。
 
 開発中のAndroid版をGalaxyで試すには、[実機テスト用プレビューの導入手順](docs/DEVICE-PREVIEW.md)をご覧ください。
 
