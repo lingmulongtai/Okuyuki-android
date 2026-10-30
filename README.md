@@ -32,7 +32,7 @@ Android のプレビューは **v0.1.0-alpha.13-preview**、Quest は **v0.1.0-a
 
 以下は実機検証前の実験機能です。
 
-LG webOS テレビは、Android の「接続」をオンにして同じ Wi-Fi のテレビに表示アドレスを入力し、4 桁の番号を両画面で確認して接続できます。写真・動画の権限を許可してください。[TV 版のセットアップと既知の制限](https://github.com/lingmulongtai/Okuyuki-webos/blob/codex/webos-connection/docs/TV.md)。Galaxy とテレビの実機での接続・再生・4K 出力は未検証です。
+LG webOS テレビは、Android の「接続」タブで「Quest・テレビとつなぐ」をオンにし、「テレビを探す」で見つかったテレビの「開く」を押すと、テレビの Okuyuki TV がこのスマホにつながった状態で開きます。初めてのテレビでは、テレビの画面で「許可」を選んでください。見つからない場合は、テレビで Okuyuki TV を開いて Android の表示アドレスを入力します。どちらも 4 桁の番号を両画面で確認して接続します。写真・動画の権限を許可してください。[TV 版のセットアップと既知の制限](https://github.com/lingmulongtai/Okuyuki-webos/blob/main/docs/TV.md)。Galaxy とテレビの実機での接続・再生・4K 出力は未検証です。
 
 開発中のAndroid版をGalaxyで試すには、[実機テスト用プレビューの導入手順](docs/DEVICE-PREVIEW.md)をご覧ください。
 
