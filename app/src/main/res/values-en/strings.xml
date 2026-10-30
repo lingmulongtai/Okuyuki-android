@@ -87,7 +87,7 @@
     <string name="notify_video_sharing">Sharing a 360° video</string>
     <string name="panorama_video_shared">Sharing a 360° video. Open it on Quest.</string>
     <string name="panorama_video_stop_share">Stop sharing 360° video</string>
-    <string name="panorama_video_share_error">Could not share video. Check the connection, size (up to 64 GiB), and that the file is seekable on this device.</string>
+    <string name="panorama_video_share_error">Could not share video. Check the connection, size (up to 256 GiB), and that the file is seekable on this device.</string>
     <string name="osmo_picker">Open Osmo 360 LRF or OSV</string>
     <string name="osv_preview">Preview Osmo 360 OSV</string>
     <string name="osv_experimental">Experimental direct playback. Lens calibration was not found, so misalignment and seams may occur.</string>
