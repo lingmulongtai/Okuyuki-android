@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -53,6 +54,7 @@ internal fun PhoneNavigation(selected: Int, onSelect: (Int) -> Unit) {
                     val active = index == selected
                     Row(
                         Modifier.semantics(mergeDescendants = true) { contentDescription = label }
+                            .clip(CircleShape)
                             .selectable(selected = active, role = Role.Tab, onClick = { onSelect(index) })
                             .background(if (active) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, CircleShape)
                             .heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 10.dp),
