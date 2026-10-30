@@ -42,6 +42,7 @@ private val dark = darkColorScheme(primary = Color(0xFF8FA3FF), background = Col
 
 @Composable
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
+    val updater = rememberAppUpdates()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var detail by remember { mutableStateOf<IndexedPhoto?>(null) }
     var panoramaVideo by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -206,6 +207,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     }
                     else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
+                        UpdateSettings(updater)
                         Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
                         val selectedLanguage = localeManager.applicationLocales[0]?.language ?: ""
                         Column(Modifier.selectableGroup()) {
@@ -241,6 +243,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                 }
             }
         }
+        UpdatePrompt(updater)
         detail?.let { photo -> AlertDialog(onDismissRequest = { detail = null }, confirmButton = { TextButton(onClick = { detail = null }) { Text(stringResource(R.string.close)) } },
             title = { Text(photo.name) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 PhoneThumbnail(app, photo, Modifier.fillMaxWidth().aspectRatio(photo.width.toFloat().coerceAtLeast(1f) / photo.height.coerceAtLeast(1)))
