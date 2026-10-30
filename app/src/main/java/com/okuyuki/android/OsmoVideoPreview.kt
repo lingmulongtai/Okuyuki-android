@@ -62,7 +62,9 @@ fun OsmoVideoPreview(uri: Uri, onClose: () -> Unit) {
     val players = remember(uri) {
         List(2) { index ->
             ExoPlayer.Builder(context).build().apply {
-                if (index == 1) trackSelectionParameters = trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
+                val parameters = trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                if (index == 1) parameters.setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                trackSelectionParameters = parameters.build()
                 setMediaItem(MediaItem.fromUri(uri))
             }
         }
@@ -92,7 +94,8 @@ fun OsmoVideoPreview(uri: Uri, onClose: () -> Unit) {
                     expectedGroups[playerIndex] = group
                     expectedIndices[playerIndex] = item.index
                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-                        .setOverrideForType(TrackSelectionOverride(group, item.index)).build()
+                        .setOverrideForType(TrackSelectionOverride(group, item.index))
+                        .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false).build()
                     selected[playerIndex] = player.currentTracks.groups.any { it.mediaTrackGroup == group && it.isTrackSelected(item.index) }
                 }
             }.also { player.addListener(it) }
