@@ -60,6 +60,24 @@ class PhotoLibrary(private val context: Context, val dao: LibraryDao, private va
         catch (_: java.io.IOException) { false }
     }
 
+    /** MediaStore applies the current full or selected-photo permissions to these queries. */
+    suspend fun visibleIds(): Set<Long> = withContext(Dispatchers.IO) {
+        val ids = HashSet<Long>()
+        val selected = granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+        for ((uri, permission) in listOf(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI to Manifest.permission.READ_MEDIA_IMAGES,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI to Manifest.permission.READ_MEDIA_VIDEO,
+        )) {
+            if (!selected && !granted(permission)) continue
+            try {
+                context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)?.use { cursor ->
+                    while (cursor.moveToNext()) { ensureActive(); ids.add(cursor.getLong(0)) }
+                }
+            } catch (_: SecurityException) { /* Permission may have changed; omit this collection. */ }
+        }
+        ids
+    }
+
     private fun granted(permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     fun refresh() {

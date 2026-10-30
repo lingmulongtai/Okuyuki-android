@@ -109,10 +109,15 @@ class AndroidTvMedia(
         if (!library.hasPermission()) return ItemPage(emptyList(), null, 0)
         val kind = when (filter) { "photo" -> IndexedMedia.PHOTO; "video" -> IndexedMedia.VIDEO; else -> null }
         val stereo = filter == "stereo"
-        val visible = dao.all().filter { (kind == null || it.kind == kind) && (!stereo || it.stereo) && library.canRead(it) }
+        val visibleIds = library.visibleIds()
+        val visible = dao.all().filter { it.id in visibleIds && (kind == null || it.kind == kind) && (!stereo || it.stereo) }
             .sortedWith(compareByDescending<IndexedMedia> { it.takenAt }.thenByDescending { it.id })
-        val rows = visible.filter { it.takenAt < after.takenAt || (it.takenAt == after.takenAt && it.id < after.id) }
-            .take(Protocol.TV_PAGE_SIZE + 1)
+        val rows = ArrayList<IndexedMedia>(Protocol.TV_PAGE_SIZE + 1)
+        for (media in visible) {
+            if (media.takenAt > after.takenAt || (media.takenAt == after.takenAt && media.id >= after.id)) continue
+            if (library.canRead(media)) rows.add(media)
+            if (rows.size > Protocol.TV_PAGE_SIZE) break
+        }
         val items = rows.take(Protocol.TV_PAGE_SIZE)
         val next = items.lastOrNull()?.takeIf { rows.size > items.size }?.let { LibraryCursor(it.takenAt, it.id).encode() }
         return ItemPage(items.map { it.item() }, next, visible.size)

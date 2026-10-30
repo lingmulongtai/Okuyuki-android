@@ -30,10 +30,11 @@ class TvApiTest {
     }
 
     /** A phone with photos 1 to 130, newest first, whose stills are ready at once. */
-    private class FakeMedia : TvMediaSource {
+    private class FakeMedia(size: Int = 100) : TvMediaSource {
         val items = (130 downTo 1).map { Item("$it", "photo", "IMG_$it.jpg", it * 1000L, 4000, 3000, 1000, "image/jpeg") }
-        val still = ByteArray(100) { it.toByte() }
+        val still = ByteArray(size) { it.toByte() }
         @Volatile var asked: Capabilities? = null
+        @Volatile var itemChecks = 0
 
         override suspend fun page(filter: String, cursor: String?): ItemPage? {
             val start = if (cursor == null) 0 else cursor.toIntOrNull() ?: return null
@@ -41,7 +42,7 @@ class TvApiTest {
             val end = start + page.size
             return ItemPage(page, end.toString().takeIf { end < items.size }, items.size)
         }
-        override suspend fun item(id: String) = items.firstOrNull { it.id == id }
+        override suspend fun item(id: String): Item? { itemChecks++; return items.firstOrNull { it.id == id } }
         override suspend fun thumbnail(id: String) = item(id)?.let { byteArrayOf(1, 2, 3) }
         override suspend fun display(id: String) = item(id)?.let { byteArrayOf(4, 5, 6) }
         override suspend fun prepare(id: String, target: String, capabilities: Capabilities?): Prepared? {
@@ -224,5 +225,14 @@ class TvApiTest {
         val result = runCatching { copyAllowed(input, 100, { permitted }) { _, count -> written += count } }
         assertTrue(result.isFailure)
         assertEquals(0, written)
+    }
+
+    @Test fun `a fast video transfer does not reopen the source for every chunk`() = testApplication {
+        val authority = PairingAuthority()
+        val media = FakeMedia(1024 * 1024)
+        host(TvHost(authority, media, MutableSharedFlow()))
+        val key = session(approve(authority))
+        assertEquals(media.still.size, client.get("/v2/k/$key/items/7/video").readRawBytes().size)
+        assertTrue("source checks: ${media.itemChecks}", media.itemChecks < 10)
     }
 }

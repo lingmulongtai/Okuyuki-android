@@ -11,6 +11,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import java.io.InputStream
@@ -111,8 +113,18 @@ fun Route.tvApi(tv: TvHost) {
             val key = call.parameters["key"]
             val file = tv.media.file(id, target, tv.capabilities[peer.tokenHash])
             if (file == null) { call.respond(HttpStatusCode.NotFound, ApiError("まだ準備ができていません")); return@get }
+            val accessLock = Mutex()
+            var checkedAt = 0L
+            var sourceAllowed = true
             call.respondRanged(file.size, ContentType.parse(file.mime), file.open) {
-                tv.authority.peerFor(key) != null && tv.media.item(id) != null
+                if (tv.authority.peerFor(key) == null) false else accessLock.withLock {
+                    val now = System.nanoTime()
+                    if (checkedAt == 0L || now - checkedAt >= 250_000_000L) {
+                        sourceAllowed = tv.media.item(id) != null
+                        checkedAt = now
+                    }
+                    sourceAllowed && tv.authority.peerFor(key) != null
+                }
             }
         }
         webSocket("/events") {
