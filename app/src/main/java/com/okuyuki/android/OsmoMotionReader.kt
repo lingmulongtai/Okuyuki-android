@@ -28,12 +28,16 @@ internal object OsmoMotionReader {
             require(offset >= 0 && size >= 0 && offset <= length - size)
             val buffer = ByteBuffer.allocate(size)
             channel.position(Math.addExact(start, offset))
-            while (buffer.hasRemaining()) require(channel.read(buffer) > 0)
+            while (buffer.hasRemaining()) {
+                checkActive()
+                require(channel.read(buffer) > 0)
+            }
             return buffer.array()
         }
         var position = 0L
         var moov: ByteArray? = null
         while (position <= length - 8) {
+            checkActive()
             val h = ByteBuffer.wrap(readAt(position, 8)).order(ByteOrder.BIG_ENDIAN)
             val small = h.int.toLong() and 0xffffffffL
             val type = ByteArray(4).also { h.get(it) }.toString(Charsets.ISO_8859_1)
