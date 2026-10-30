@@ -90,10 +90,10 @@
     <string name="panorama_video_share_error">Could not share video. Check the connection, size (up to 64 GiB), and that the file is seekable on this device.</string>
     <string name="osmo_picker">Open Osmo 360 LRF or OSV</string>
     <string name="osv_preview">Preview Osmo 360 OSV</string>
-    <string name="osv_experimental">Experimental direct playback uses two 4K video streams. Misalignment and seams may occur. Lens and stabilization corrections are not available.</string>
+    <string name="osv_experimental">Experimental direct playback. Lens calibration was not found, so misalignment and seams may occur.</string>
     <string name="osv_error">Could not play this OSV. The device may not support two simultaneous 4K HEVC streams.</string>
     <string name="osmo_calibrated">Experimental lens-calibrated preview. Alignment may vary by recording mode.</string>
-    <string name="osv_calibrated">Experimental lens calibration applied; stabilization is not available.</string>
+    <string name="osv_calibrated">Experimental lens calibration applied.</string>
     <string name="osmo_stabilization_experimental">Stabilization (experimental)</string>
     <string name="osmo_stabilization_note">Rotation is smoothed using matched frame timestamps. Stabilization switches off if a frame cannot be matched.</string>
     <string name="osmo_stabilization_unavailable">Stabilization was switched off because the frame and attitude timestamps could not be matched.</string>
