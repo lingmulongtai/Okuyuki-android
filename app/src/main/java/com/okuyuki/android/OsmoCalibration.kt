@@ -1,5 +1,8 @@
 package com.okuyuki.android
 
+import com.okuyuki.protocol.PanoramaVideoFormat
+import com.okuyuki.protocol.PanoramaLensCalibration
+import com.okuyuki.protocol.PanoramaStereoCalibration
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -9,13 +12,18 @@ import kotlin.math.sqrt
 internal data class OsmoLens(val intrinsics: FloatArray, val distortion: FloatArray, val quaternion: FloatArray)
 internal data class OsmoCalibration(val left: OsmoLens, val right: OsmoLens)
 
+internal fun OsmoCalibration.toShareCalibration(): PanoramaStereoCalibration {
+    fun OsmoLens.toShared() = PanoramaLensCalibration(intrinsics.toList(), distortion.toList(), quaternion.toList())
+    return PanoramaStereoCalibration(left.toShared(), right.toShared()).also { require(it.isValid()) }
+}
+
 /** Bounded MP4/djmd reader. Returns null when the mode or metadata is not understood. */
 internal object OsmoCalibrationReader {
     private const val MAX_MOOV = 64 * 1024 * 1024
     private const val MAX_SAMPLE = 1024 * 1024
     private data class Box(val type: String, val content: Int, val end: Int)
 
-    fun read(channel: FileChannel, start: Long, length: Long): OsmoCalibration? = runCatching {
+    fun read(channel: FileChannel, start: Long, length: Long, format: PanoramaVideoFormat = PanoramaVideoFormat.OSMO_LRF): OsmoCalibration? = runCatching {
         require(start >= 0 && length in 8..channel.size() && start <= channel.size() - length)
         fun readAt(offset: Long, size: Int): ByteArray {
             require(offset >= 0 && size >= 0 && offset <= length - size)
@@ -63,7 +71,7 @@ internal object OsmoCalibrationReader {
             if (u32(data, sizes.content + 8, sizes.end) < 1) continue
             val sampleSize = if (defaultSize == 0L) u32(data, sizes.content + 12, sizes.end) else defaultSize
             if (sampleSize !in 1..MAX_SAMPLE.toLong()) continue
-            val candidate = runCatching { parseProduct(readAt(sampleOffset, sampleSize.toInt())) }.getOrNull()
+            val candidate = runCatching { parseProduct(readAt(sampleOffset, sampleSize.toInt()), format) }.getOrNull()
             if (candidate != null) return candidate
         }
         null
@@ -130,10 +138,15 @@ internal object OsmoCalibrationReader {
         val field = list.firstOrNull { it.number == id && it.wire == 5 } ?: return requireNotNull(default)
         return ByteBuffer.wrap(field.bytes).order(ByteOrder.LITTLE_ENDIAN).float.also { require(it.isFinite()) }
     }
-    internal fun parseProduct(sample: ByteArray): OsmoCalibration? = runCatching {
+    internal fun parseProduct(sample: ByteArray, format: PanoramaVideoFormat = PanoramaVideoFormat.OSMO_LRF): OsmoCalibration? = runCatching {
         val stream = requireNotNull(message(fields(sample), 2))
         val video = requireNotNull(message(stream, 3))
-        require(scalar(video, 1) == 2048L && scalar(video, 2) == 1024L)
+        val dimensions = when (format) {
+            PanoramaVideoFormat.OSMO_LRF -> 2048L to 1024L
+            PanoramaVideoFormat.OSMO_OSV -> 3840L to 3840L
+            else -> error("unsupported projection")
+        }
+        require(scalar(video, 1) == dimensions.first && scalar(video, 2) == dimensions.second)
         val mode = message(stream, 7)?.let { scalar(it, 1) } ?: 0L
         require(mode == 0L)
         val lenses = requireNotNull(message(stream, 6))

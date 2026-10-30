@@ -1,5 +1,6 @@
 package com.okuyuki.android
 
+import com.okuyuki.protocol.PanoramaVideoFormat
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
@@ -30,6 +31,7 @@ class OsmoCalibrationTest {
         val result = OsmoCalibrationReader.parseProduct(bytes)
         assertNotNull(result)
         assertEquals(1000f, result!!.left.intrinsics[0], 0.001f)
+        assertTrue(result.toShareCalibration().isValid())
         assertArrayEquals(floatArrayOf(1f, 0f, 0f, 0f), result.left.quaternion, 0.001f)
         assertNull(OsmoCalibrationReader.parseProduct(bytes.copyOf(bytes.size - 1)))
         assertNull(OsmoCalibrationReader.parseProduct(byteArrayOf(0)))
@@ -54,6 +56,16 @@ class OsmoCalibrationTest {
             temporary.writeBytes(file(Int.MAX_VALUE))
             FileChannel.open(temporary.toPath(), StandardOpenOption.READ).use { input -> assertNull(OsmoCalibrationReader.read(input, 0, input.size())) }
         } finally { temporary.delete() }
+    }
+    @Test fun `read actual user OSV when explicitly provided`() {
+        val path = System.getenv("OKUYUKI_OSV_SAMPLE")
+        assumeTrue(!path.isNullOrBlank() && File(path!!).isFile)
+        FileChannel.open(File(path!!).toPath(), StandardOpenOption.READ).use { input ->
+            val result = OsmoCalibrationReader.read(input, 0, input.size(), PanoramaVideoFormat.OSMO_OSV)
+            assertNotNull("the real OSV must contain native Osmo calibration", result)
+            assertTrue(result!!.toShareCalibration().isValid())
+            assertNull(OsmoCalibrationReader.read(input, 0, input.size(), PanoramaVideoFormat.OSMO_LRF))
+        }
     }
     @Test fun `read actual user LRF when explicitly provided`() {
         val path = System.getenv("OKUYUKI_LRF_SAMPLE")
