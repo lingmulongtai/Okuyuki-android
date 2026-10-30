@@ -8,6 +8,8 @@ Project: https://github.com/users/lingmulongtai/projects/2
 
 ## GalaxyとQuest 3Sで試す
 
+**開発版で360°写真の共有を試す場合:** [Galaxy・Quest実機テスト用プレビュー](docs/DEVICE-PREVIEW.md)をご覧ください。
+
 配布中のアルファは **v0.1.0-alpha.1** です。Galaxyは **Android 16** が必要です。
 
 | 入れる端末 | APKの直接ダウンロード | 保存先 |
@@ -35,7 +37,7 @@ Project: https://github.com/users/lingmulongtai/projects/2
 - 設定で日本語・英語・端末の言語、ライト・ダーク・端末のテーマを選択できます。
 - ライブラリの「360°メディアを開く」から、結合済みの2:1の360°写真や360° MP4をスマートフォン上で表示できます。写真は表示時に最大4096ピクセルに縮小されます。部分的に切り抜かれたパノラマには未対応です。
 - 同じ入口からDJI Osmo 360の `.LRF` を選ぶと、左右の魚眼映像を使う実験的なプレビューを試せます。ドラッグで視点を変更でき、再生・一時停止・シークに対応します。レンズの個別補正、手ぶれ補正、つなぎ目の調整は未実装です。
-- これらの操作や表示はAndroid実機では未検証です。Questでの360°写真・動画の再生と、`.OSV` の直接再生にはまだ対応していません。
+- これらの操作や表示はAndroid実機では未検証です。Questでの360°写真は通常ウィンドウ内での表示に対応しました。Questへの360°動画転送・再生と、`.OSV` の直接再生にはまだ対応していません。
 
 ## Build
 JDK 17、Android SDK 36。`./gradlew assembleDebug`（Windows: `gradlew.bat`）。
