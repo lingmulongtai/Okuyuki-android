@@ -34,6 +34,12 @@ interface PanoramaPhotoSource {
     suspend fun open(id: String): InputStream?
 }
 
+/** One seekable video explicitly shared for the current session. */
+interface PanoramaVideoSource {
+    suspend fun current(): PanoramaVideoShare?
+    suspend fun open(id: String, offset: Long): InputStream?
+}
+
 internal suspend fun copyPanorama(input: InputStream, output: OutputStream, size: Long, allowed: suspend () -> Boolean) = coroutineScope {
     val closed = java.util.concurrent.atomic.AtomicBoolean(false)
     fun closeInput() { if (closed.compareAndSet(false, true)) runCatching { input.close() } }
@@ -72,11 +78,13 @@ fun Application.photoApi(
     connected: (Int) -> Unit = {},
     viewing: (String?) -> Unit = {},
     panorama: PanoramaPhotoSource? = null,
+    video: PanoramaVideoSource? = null,
 ) {
     install(ContentNegotiation) { json(Protocol.json) }
     install(WebSockets) { maxFrameSize = 8192; pingPeriodMillis = 15_000; timeoutMillis = 30_000 }
     val active = java.util.concurrent.atomic.AtomicInteger(0)
     val panoramaTransfers = Semaphore(3)
+    val videoTransfers = Semaphore(3)
     suspend fun permitted(call: ApplicationCall): Boolean {
         if (authority.authorized(call.request.headers[HttpHeaders.Authorization])) return true
         call.respond(HttpStatusCode.Unauthorized, ApiError("スマホ側で接続を許可してください"))
@@ -133,6 +141,40 @@ fun Application.photoApi(
                         check(authority.authorized(authorization) && source.current() == item) { "Share ended" }
                         val input = source.open(item.id) ?: throw java.io.FileNotFoundException()
                         copyPanorama(input, this@respondOutputStream, item.sizeBytes) {
+                            authority.authorized(authorization) && source.current() == item
+                        }
+                    }
+                }
+            }
+        }
+        get("/v2/panorama/video") {
+            if (!permitted(call)) return@get
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            val item = video?.current()?.takeIf { it.isValid() }
+            if (item == null) call.respond(HttpStatusCode.NoContent) else call.respond(item)
+        }
+        get("/v2/panorama/video/{id}") {
+            if (!permitted(call)) return@get
+            val source = video ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val item = source.current()?.takeIf { it.isValid() && it.id == call.parameters["id"] }
+                ?: run { call.respond(HttpStatusCode.NotFound); return@get }
+            val authorization = call.request.headers[HttpHeaders.Authorization]
+            val header = call.request.headers[HttpHeaders.Range]
+            val range = ByteRange.parse(header, item.sizeBytes)
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.response.header(HttpHeaders.AcceptRanges, "bytes")
+            if (range == null) {
+                call.response.header(HttpHeaders.ContentRange, "bytes */${item.sizeBytes}")
+                call.respond(HttpStatusCode.RequestedRangeNotSatisfiable); return@get
+            }
+            if (header != null) call.response.header(HttpHeaders.ContentRange, "bytes ${range.first}-${range.last}/${item.sizeBytes}")
+            call.response.header(HttpHeaders.ContentLength, range.length.toString())
+            call.respondOutputStream(ContentType.Video.MP4, if (header == null) HttpStatusCode.OK else HttpStatusCode.PartialContent) {
+                withContext(Dispatchers.IO) {
+                    videoTransfers.withPermit {
+                        check(authority.authorized(authorization) && source.current() == item) { "Share ended" }
+                        val input = source.open(item.id, range.first) ?: throw java.io.FileNotFoundException()
+                        copyPanorama(input, this@respondOutputStream, range.length) {
                             authority.authorized(authorization) && source.current() == item
                         }
                     }

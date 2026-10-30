@@ -112,6 +112,44 @@ class PhotoApiTest {
         authority.setPeers(emptyList())
         assertEquals(HttpStatusCode.Unauthorized, client.get("/v2/panorama/photo") { bearerAuth(token) }.status)
     }
+    @Test fun `video ranges require approval and stop when sharing ends`() = testApplication {
+        val authority = PairingAuthority()
+        val bytes = ByteArray(100) { it.toByte() }
+        var shared: PanoramaVideoShare? = PanoramaVideoShare("0123456789abcdef0123456789abcdef", bytes.size.toLong())
+        val video = object : PanoramaVideoSource {
+            override suspend fun current() = shared
+            override suspend fun open(id: String, offset: Long) =
+                if (id == shared?.id) bytes.copyOfRange(offset.toInt(), bytes.size).inputStream() else null
+        }
+        val photos = object : HostPhotoSource {
+            override suspend fun photos() = emptyList<Photo>()
+            override suspend fun thumbnail(id: String) = null
+            override suspend fun original(id: String): Original? = null
+        }
+        application { photoApi(photos, authority, { Hello("phone", "Galaxy", "alpha", 0) }, MutableSharedFlow(), video = video) }
+        val path = "/v2/panorama/video/${shared!!.id}"
+        assertEquals(HttpStatusCode.Unauthorized, client.get(path).status)
+        val request = PairRequest("quest", "Quest")
+        val pending = authority.beginOrPoll(request)
+        val peer = authority.prepareApproval(pending.requestId)!!
+        authority.setPeers(listOf(peer))
+        assertTrue(authority.completeApproval(pending.requestId, peer))
+        val token = authority.beginOrPoll(request.copy(requestId = pending.requestId)).token!!
+        val metadata = client.get("/v2/panorama/video") { bearerAuth(token) }
+        assertEquals(shared, Protocol.json.decodeFromString<PanoramaVideoShare>(metadata.bodyAsText()))
+        val part = client.get(path) { bearerAuth(token); header(HttpHeaders.Range, "bytes=10-19") }
+        assertEquals(HttpStatusCode.PartialContent, part.status)
+        assertEquals("bytes 10-19/100", part.headers[HttpHeaders.ContentRange])
+        assertEquals("no-store", part.headers[HttpHeaders.CacheControl])
+        assertArrayEquals(bytes.copyOfRange(10, 20), part.readRawBytes())
+        assertEquals(HttpStatusCode.RequestedRangeNotSatisfiable,
+            client.get(path) { bearerAuth(token); header(HttpHeaders.Range, "bytes=100-") }.status)
+        shared = null
+        assertEquals(HttpStatusCode.NoContent, client.get("/v2/panorama/video") { bearerAuth(token) }.status)
+        assertEquals(HttpStatusCode.NotFound, client.get(path) { bearerAuth(token) }.status)
+        authority.setPeers(emptyList())
+        assertEquals(HttpStatusCode.Unauthorized, client.get(path) { bearerAuth(token) }.status)
+    }
     @Test fun `pairing rejects oversized streamed bodies without a declared length`() = testApplication {
         val source = object : HostPhotoSource {
             override suspend fun photos() = emptyList<Photo>()
