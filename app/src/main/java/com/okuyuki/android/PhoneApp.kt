@@ -133,8 +133,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     }
                 }
                 when (tab) {
-                    0 -> {
-                        GlassPanel(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                    0 -> LazyVerticalGrid(columns = GridCells.Fixed(3), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        item(span = { GridItemSpan(3) }) { GlassPanel(Modifier.fillMaxWidth()) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(stringResource(R.string.open_360), style = MaterialTheme.typography.titleMedium)
@@ -143,31 +143,31 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                                 FilledTonalButton(onClick = { showMediaChooser = true }) { Text(stringResource(R.string.open_media)) }
                             }
                             if (osmoSelectionError) Text(stringResource(R.string.osmo_choose_error), color = MaterialTheme.colorScheme.error)
-                        }
-                        Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        } }
+                        item(span = { GridItemSpan(3) }) { Row(Modifier.fillMaxWidth().padding(start = 6.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             val readable = libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED
                             Text(if (readable) stringResource(R.string.photo_count, photos.size) else stringResource(R.string.photos), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                             TextButton(onClick = { app.library.refresh() }) { Text(stringResource(R.string.refresh)) }
-                        }
-                        Text(stringResource(when (libraryState) {
+                        } }
+                        item(span = { GridItemSpan(3) }) { Text(stringResource(when (libraryState) {
                             LibraryState.CHECKING -> R.string.status_checking
                             LibraryState.PERMISSION_REQUIRED -> R.string.status_permission
                             LibraryState.SCANNING -> R.string.status_scanning
                             LibraryState.READY -> R.string.status_ready
                             LibraryState.LIMITED -> R.string.status_limited
                             LibraryState.ERROR -> R.string.status_error
-                        }), Modifier.padding(start = 22.dp, end = 22.dp, bottom = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (libraryState == LibraryState.PERMISSION_REQUIRED) GlassPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        }), Modifier.padding(start = 6.dp, end = 6.dp, bottom = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        if (libraryState == LibraryState.PERMISSION_REQUIRED) item(span = { GridItemSpan(3) }) { GlassPanel(Modifier.fillMaxWidth()) {
                             Text(stringResource(R.string.permission_explain), style = MaterialTheme.typography.bodyMedium)
                             Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_access)) }
-                        } else if (libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED) {
-                            if (photos.isEmpty()) GlassPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        } } else if (libraryState == LibraryState.READY || libraryState == LibraryState.LIMITED) {
+                            if (photos.isEmpty()) item(span = { GridItemSpan(3) }) { GlassPanel(Modifier.fillMaxWidth()) {
                                 Text(stringResource(R.string.empty_title), style = MaterialTheme.typography.titleMedium)
                                 Text(stringResource(R.string.empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (libraryState == LibraryState.LIMITED) {
                                     TextButton(onClick = requestPhotos) { Text(stringResource(R.string.change_selection)) }
                                 }
-                            } else LazyVerticalGrid(columns = GridCells.Fixed(3), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            } } else {
                                 photos.groupBy { date(it.takenAt, locale) }.forEach { (day, group) ->
                                     item(span = { GridItemSpan(3) }) { Text(stringResource(R.string.day_count, day, group.size), Modifier.padding(top = 12.dp, bottom = 8.dp, start = 4.dp), style = MaterialTheme.typography.titleSmall) }
                                     items(group, key = { it.id }) { photo ->
