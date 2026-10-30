@@ -215,40 +215,50 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             Text(stringResource(R.string.timeout), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
-                        UpdateSettings(updater)
-                        Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
-                        val selectedLanguage = localeManager.applicationLocales[0]?.language ?: ""
-                        Column(Modifier.selectableGroup()) {
-                            listOf("" to R.string.language_system, "ja" to R.string.language_japanese, "en" to R.string.language_english).forEach { (tag, label) ->
-                                Row(Modifier.fillMaxWidth().selectable(selected = selectedLanguage == tag, role = Role.RadioButton, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }), verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = selectedLanguage == tag, onClick = null)
-                                    Text(stringResource(label))
+                    else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            Text("Okuyuki ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
+                            UpdateSettings(updater)
+                        }
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
+                            val selectedLanguage = localeManager.applicationLocales[0]?.language ?: ""
+                            Column(Modifier.selectableGroup()) {
+                                listOf("" to R.string.language_system, "ja" to R.string.language_japanese, "en" to R.string.language_english).forEach { (tag, label) ->
+                                    Row(Modifier.fillMaxWidth().selectable(selected = selectedLanguage == tag, role = Role.RadioButton, onClick = { localeManager.applicationLocales = LocaleList.forLanguageTags(tag) }), verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = selectedLanguage == tag, onClick = null)
+                                        Text(stringResource(label))
+                                    }
                                 }
                             }
                         }
-                        Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
-                        Column(Modifier.selectableGroup()) {
-                            listOf("system" to R.string.theme_system, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEach { (value, label) ->
-                                val select = { theme = value; appearance.edit().putString("theme", value).apply() }
-                                Row(Modifier.fillMaxWidth().selectable(selected = theme == value, role = Role.RadioButton, onClick = select), verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = theme == value, onClick = null)
-                                    Text(stringResource(label))
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
+                            Column(Modifier.selectableGroup()) {
+                                listOf("system" to R.string.theme_system, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEach { (value, label) ->
+                                    val select = { theme = value; appearance.edit().putString("theme", value).apply() }
+                                    Row(Modifier.fillMaxWidth().selectable(selected = theme == value, role = Role.RadioButton, onClick = select), verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = theme == value, onClick = null)
+                                        Text(stringResource(label))
+                                    }
                                 }
                             }
                         }
-                        OutlinedButton(onClick = { guidePage = 0; showGuide = true }) { Text(stringResource(R.string.guide_open)) }
-                        Text(stringResource(R.string.paired), style = MaterialTheme.typography.titleMedium)
-                        if (peers.isEmpty()) Text(stringResource(R.string.no_peers))
-                        peers.forEach { peer -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(peer.name, Modifier.weight(1f))
-                            TextButton(onClick = { scope.launch { HostRuntime.pairingMutex.withLock {
-                                app.database.dao().deletePeer(peer.clientId); refreshAuthority(app.database.dao())
-                            } } }) { Text(stringResource(R.string.remove)) }
-                        } }
-                        OutlinedButton(onClick = requestPhotos) { Text(stringResource(R.string.change_access)) }
-                        Text(stringResource(R.string.alpha_notice))
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.paired), style = MaterialTheme.typography.titleMedium)
+                            if (peers.isEmpty()) Text(stringResource(R.string.no_peers), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            peers.forEach { peer -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(peer.name, Modifier.weight(1f))
+                                TextButton(onClick = { scope.launch { HostRuntime.pairingMutex.withLock {
+                                    app.database.dao().deletePeer(peer.clientId); refreshAuthority(app.database.dao())
+                                } } }) { Text(stringResource(R.string.remove)) }
+                            } }
+                        }
+                        GlassPanel(Modifier.fillMaxWidth()) {
+                            OutlinedButton(onClick = { guidePage = 0; showGuide = true }) { Text(stringResource(R.string.guide_open)) }
+                            OutlinedButton(onClick = requestPhotos) { Text(stringResource(R.string.change_access)) }
+                            Text(stringResource(R.string.alpha_notice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
