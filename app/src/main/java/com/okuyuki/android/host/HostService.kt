@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.IBinder
+import android.net.Uri
 import android.util.Size
 import androidx.core.app.NotificationCompat
 import com.okuyuki.android.*
@@ -26,12 +27,16 @@ import java.net.NetworkInterface
 import java.util.UUID
 
 data class HostState(val running: Boolean = false, val port: Int = 0, val addresses: List<String> = emptyList(),
-    val clients: Int = 0, val viewingId: String? = null, val error: Int? = null)
+    val clients: Int = 0, val viewingId: String? = null, val error: Int? = null, val sessionId: String? = null)
+internal fun acceptsPanoramaShare(sessionId: String?, state: HostState) =
+    sessionId != null && state.running && state.sessionId == sessionId
+data class SelectedPanoramaPhoto(val share: PanoramaPhotoShare, val uri: Uri)
 
 object HostRuntime {
     val state = MutableStateFlow(HostState())
     val authority = PairingAuthority()
     val pairingMutex = Mutex()
+    val panoramaPhoto = MutableStateFlow<SelectedPanoramaPhoto?>(null)
 }
 
 class HostService : Service() {
@@ -48,7 +53,7 @@ class HostService : Service() {
         super.onCreate()
         updateNotificationChannel()
         startForeground(1, notification(getString(R.string.notify_waiting)))
-        HostRuntime.state.value = HostState(running = true)
+        HostRuntime.state.value = HostState(running = true, sessionId = UUID.randomUUID().toString())
         app.library.refresh()
         scope.launch {
             app.database.dao().observePeers().collect {
@@ -56,9 +61,11 @@ class HostService : Service() {
             }
         }
         scope.launch {
-            HostRuntime.authority.pending.collect { requests ->
+            combine(HostRuntime.authority.pending, HostRuntime.panoramaPhoto) { requests, photo ->
+                if (requests.isNotEmpty()) R.string.notify_code else if (photo != null) R.string.notify_sharing else R.string.notify_waiting
+            }.collect { message ->
                 getSystemService(NotificationManager::class.java).notify(1,
-                    notification(getString(if (requests.isEmpty()) R.string.notify_waiting else R.string.notify_code)))
+                    notification(getString(message)))
             }
         }
         scope.launch {
@@ -73,7 +80,8 @@ class HostService : Service() {
                         connected = { count ->
                             lastClientAt = System.currentTimeMillis()
                             HostRuntime.state.update { it.copy(clients = count, viewingId = if (count == 0) null else it.viewingId) }
-                        }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } })
+                        }, viewing = { id -> HostRuntime.state.update { it.copy(viewingId = id) } },
+                        panorama = panoramaSource())
                 }
                 server = engine
                 withContext(Dispatchers.IO) { engine.start(wait = false) }
@@ -81,6 +89,7 @@ class HostService : Service() {
                 HostRuntime.state.update { it.copy(port = port, addresses = addresses().map { address -> "$address:$port" }) }
                 advertise(port)
                 launch { app.library.photos.drop(1).collect { events.emit(Event("library_changed")) } }
+                launch { HostRuntime.panoramaPhoto.collect { events.emit(Event("panorama_changed")) } }
                 while (isActive) {
                     delay(30_000)
                     if (HostRuntime.state.value.clients > 0) lastClientAt = System.currentTimeMillis()
@@ -88,6 +97,21 @@ class HostService : Service() {
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { HostRuntime.state.value = HostState(error = R.string.host_wifi_error); stopSelf() }
+        }
+    }
+
+    private fun panoramaSource() = object : PanoramaPhotoSource {
+        override suspend fun current() = HostRuntime.panoramaPhoto.value?.share
+        override suspend fun open(id: String): java.io.InputStream? {
+            val selected = HostRuntime.panoramaPhoto.value?.takeIf { it.share.id == id } ?: return null
+            return try { contentResolver.openInputStream(selected.uri) }
+            catch (_: SecurityException) {
+                HostRuntime.panoramaPhoto.compareAndSet(selected, null)
+                null
+            } catch (_: java.io.FileNotFoundException) {
+                HostRuntime.panoramaPhoto.compareAndSet(selected, null)
+                null
+            }
         }
     }
 
@@ -144,7 +168,8 @@ class HostService : Service() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         updateNotificationChannel()
-        val message = if (HostRuntime.authority.pending.value.isEmpty()) R.string.notify_waiting else R.string.notify_code
+        val message = if (HostRuntime.authority.pending.value.isNotEmpty()) R.string.notify_code
+            else if (HostRuntime.panoramaPhoto.value != null) R.string.notify_sharing else R.string.notify_waiting
         getSystemService(NotificationManager::class.java).notify(1, notification(getString(message)))
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -154,6 +179,7 @@ class HostService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         destroyed = true
+        HostRuntime.panoramaPhoto.value = null
         scope.cancel()
         if (announced) registration?.let { runCatching { getSystemService(NsdManager::class.java).unregisterService(it) } }
         server?.stop(0, 300)

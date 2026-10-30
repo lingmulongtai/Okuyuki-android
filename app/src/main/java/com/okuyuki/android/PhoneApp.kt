@@ -81,6 +81,7 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
     val locale = configuration.locales[0] ?: Locale.JAPANESE
     val localeManager = LocalContext.current.getSystemService(LocaleManager::class.java)
     val host by HostRuntime.state.collectAsStateWithLifecycle()
+    val sharedPanorama by HostRuntime.panoramaPhoto.collectAsStateWithLifecycle()
     val pending by HostRuntime.authority.pending.collectAsStateWithLifecycle()
     val peers by app.database.dao().observePeers().collectAsStateWithLifecycle(emptyList())
     val darkTheme = when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
@@ -179,9 +180,13 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                     1 -> Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) { Text(stringResource(R.string.connect_quest), style = MaterialTheme.typography.titleLarge); Text(stringResource(R.string.same_wifi)) }
-                            Switch(checked = host.running, onCheckedChange = toggleHost, enabled = app.library.hasPermission())
+                            Switch(checked = host.running, onCheckedChange = toggleHost)
                         }
                         if (!app.library.hasPermission()) Button(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
+                        if (sharedPanorama != null) {
+                            Text(stringResource(R.string.panorama_shared))
+                            OutlinedButton(onClick = { HostRuntime.panoramaPhoto.value = null }) { Text(stringResource(R.string.panorama_stop_share)) }
+                        }
                         Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off))
                         if (host.addresses.isNotEmpty()) {
                             Text(stringResource(R.string.manual_title), style = MaterialTheme.typography.titleMedium)

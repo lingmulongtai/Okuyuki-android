@@ -18,7 +18,7 @@
     <string name="viewing_quest">Questで表示中</string>
     <string name="connect_quest">Questとつなぐ</string>
     <string name="same_wifi">同じWi-FiにいるQuestを待ちます</string>
-    <string name="grant_first">先に写真へのアクセスを許可</string>
+    <string name="grant_first">3D写真へのアクセスを許可</string>
     <string name="quest_connected">Quest 接続中 · 写真をQuestで選んでください</string>
     <string name="quest_waiting">QuestでOkuyukiを開き、スマホを選んでください</string>
     <string name="quest_off">オンにするとQuestから写真を見られます。</string>
@@ -62,7 +62,8 @@
     <string name="notify_channel">Questとの接続</string>
     <string name="notify_waiting">Questを待っています</string>
     <string name="notify_code">接続番号を確認してください</string>
-    <string name="notify_stop">接続をオフ</string>
+    <string name="notify_stop">接続と共有を終了</string>
+    <string name="notify_sharing">360°写真を共有中</string>
     <string name="host_start_error">待機を開始できませんでした。アプリを開いた状態で再試行してください</string>
     <string name="host_wifi_error">接続を開始できませんでした。Wi-Fiを確認してください</string>
     <string name="host_discovery_error">自動検出を開始できませんでした。Questで表示されたアドレスを入力してください</string>
@@ -70,6 +71,11 @@
     <string name="open_360">360°メディアを開く</string>
     <string name="panorama_photo">360°写真をプレビュー</string>
     <string name="panorama_photo_error">写真を開けませんでした。結合済みの横2:縦1の360°写真を選んでください。</string>
+    <string name="panorama_share">Questに共有</string>
+    <string name="panorama_share_requires_host">Questタブで接続待機をオンにすると共有できます。</string>
+    <string name="panorama_shared">360°写真を共有中です。Questの一覧で開いてください。</string>
+    <string name="panorama_share_error">共有できませんでした。接続待機と写真のサイズ（64 MB以下）を確認してください。</string>
+    <string name="panorama_stop_share">360°写真の共有を終了</string>
     <string name="panorama_video_hint">結合済みの360°写真・MP4動画、またはOsmo 360のLRFを選んでください。OSVの直接再生は未対応です。</string>
     <string name="panorama_video_error">この動画を再生できませんでした。対応する結合済みMP4を選んでください。</string>
     <string name="osmo_preview">Osmo 360 LRFをプレビュー</string>

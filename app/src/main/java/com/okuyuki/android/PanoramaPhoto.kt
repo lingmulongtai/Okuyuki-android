@@ -17,10 +17,18 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.okuyuki.android.host.HostRuntime
+import com.okuyuki.android.host.SelectedPanoramaPhoto
+import com.okuyuki.android.host.acceptsPanoramaShare
+import com.okuyuki.protocol.PanoramaPhotoShare
+import com.okuyuki.protocol.Protocol
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import java.util.UUID
 
 private sealed interface PhotoLoad {
     data object Loading : PhotoLoad
@@ -41,6 +49,11 @@ private class PhotoBitmap(val bitmap: Bitmap) {
 @Composable
 fun PanoramaPhoto(uri: Uri, onClose: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val host by HostRuntime.state.collectAsStateWithLifecycle()
+    val sharedPhoto by HostRuntime.panoramaPhoto.collectAsStateWithLifecycle()
+    var shareMessage by remember(uri) { mutableStateOf<Int?>(null) }
+    var sharing by remember(uri) { mutableStateOf(false) }
     val result by produceState<PhotoLoad>(PhotoLoad.Loading, uri) {
         value = PhotoLoad.Loading
         var holder: PhotoBitmap? = null
@@ -72,7 +85,34 @@ fun PanoramaPhoto(uri: Uri, onClose: () -> Unit) {
                 when (val state = result) {
                     PhotoLoad.Loading -> CircularProgressIndicator()
                     PhotoLoad.Failed -> Text(stringResource(R.string.panorama_photo_error), color = MaterialTheme.colorScheme.error)
-                    is PhotoLoad.Ready -> PhotoSurface(state.holder)
+                    is PhotoLoad.Ready -> {
+                        PhotoSurface(state.holder)
+                        Button(enabled = host.running && !sharing, onClick = {
+                            val sessionId = HostRuntime.state.value.sessionId
+                            sharing = true
+                            scope.launch {
+                                try {
+                                    val size = withContext(Dispatchers.IO) {
+                                        try {
+                                            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use {
+                                                if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else null
+                                            }
+                                        } catch (_: Exception) { null }
+                                    }
+                                    if (!acceptsPanoramaShare(sessionId, HostRuntime.state.value) || size == null || size !in 1..Protocol.MAX_PANORAMA_PHOTO_BYTES) {
+                                        shareMessage = R.string.panorama_share_error
+                                    } else {
+                                        val id = UUID.randomUUID().toString().replace("-", "")
+                                        HostRuntime.panoramaPhoto.value = SelectedPanoramaPhoto(PanoramaPhotoShare(id, size), uri)
+                                        shareMessage = null
+                                    }
+                                } finally { sharing = false }
+                            }
+                        }) { Text(stringResource(R.string.panorama_share)) }
+                        if (!host.running) Text(stringResource(R.string.panorama_share_requires_host), style = MaterialTheme.typography.bodySmall)
+                        if (host.running && sharedPhoto?.uri == uri) Text(stringResource(R.string.panorama_shared), style = MaterialTheme.typography.bodySmall)
+                        shareMessage?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall) }
+                    }
                 }
                 TextButton(onClick = onClose) { Text(stringResource(R.string.close)) }
             }
