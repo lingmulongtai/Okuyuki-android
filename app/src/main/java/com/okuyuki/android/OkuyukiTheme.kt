@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.dp
 
 private val darkPalette = darkColorScheme(
@@ -43,11 +44,17 @@ private val appShapes = Shapes(
 @Composable
 internal fun OkuyukiTheme(dark: Boolean, content: @Composable () -> Unit) {
     val defaults = Typography()
+    // Japanese wraps between phrases, not inside a word, and titles balance their lines, so no line ends with one character.
+    val body = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase)
     val type = defaults.copy(
-        headlineMedium = defaults.headlineMedium.copy(fontWeight = FontWeight.Bold),
-        headlineSmall = defaults.headlineSmall.copy(fontWeight = FontWeight.Bold),
-        titleLarge = defaults.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = defaults.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        headlineMedium = defaults.headlineMedium.copy(fontWeight = FontWeight.Bold, lineBreak = LineBreak.Heading),
+        headlineSmall = defaults.headlineSmall.copy(fontWeight = FontWeight.Bold, lineBreak = LineBreak.Heading),
+        titleLarge = defaults.titleLarge.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Heading),
+        titleMedium = defaults.titleMedium.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Heading),
+        titleSmall = defaults.titleSmall.copy(lineBreak = LineBreak.Heading),
+        bodyLarge = defaults.bodyLarge.copy(lineBreak = body),
+        bodyMedium = defaults.bodyMedium.copy(lineBreak = body),
+        bodySmall = defaults.bodySmall.copy(lineBreak = body),
         labelLarge = defaults.labelLarge.copy(fontWeight = FontWeight.SemiBold),
     )
     MaterialTheme(colorScheme = if (dark) darkPalette else lightPalette, shapes = appShapes, typography = type, content = content)
