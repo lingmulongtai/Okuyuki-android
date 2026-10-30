@@ -11,8 +11,8 @@ android {
         applicationId = "com.okuyuki.android"
         minSdk = 36
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.1.0-alpha.11-preview"
+        versionCode = 12
+        versionName = "0.1.0-alpha.12-preview"
         ndk { abiFilters += "arm64-v8a" }
     }
     signingConfigs {
