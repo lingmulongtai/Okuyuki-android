@@ -22,12 +22,23 @@ class OsmoStabilizationTest {
         assertNotNull(matcher.frame(100).correction) // touch redraw or delayed callback
         map.clear(); matcher.beginSeek()
         assertTrue(matcher.frame(100).waiting)
-        assertNotNull(matcher.frame(100).correction)
+        assertNull(matcher.frame(100).correction)
+        assertTrue(matcher.frame(101).waiting) // an old unmatched buffer may arrive after seek
         map.record(200, 40000)
         assertFalse(matcher.frame(200).waiting)
         assertNotNull(matcher.frame(200).correction)
         map.record(200, 0) // ambiguous release time must not reuse the previous correction
         assertNull(matcher.frame(200).correction)
+    }
+    @Test fun `first frames wait for metadata but repeated misses fail closed`() {
+        val map = FrameTimestampMap()
+        val frame = OsmoMotionFrame(0, listOf(0f, 0f, 0f, 1f))
+        val matcher = FrameCorrectionMatcher(map, OsmoStabilization(OsmoMotionTrack(listOf(frame), 40000)))
+        assertTrue(matcher.frame(0).waiting)
+        for (timestamp in 1L..4L) assertTrue(matcher.frame(timestamp).waiting)
+        assertFalse(matcher.frame(5).waiting)
+        matcher.resetSurface(); map.record(100, 0)
+        assertNotNull(matcher.frame(100).correction)
     }
     @Test fun `stored camera axes and rotations are converted consistently`() {
         assertArrayEquals(floatArrayOf(1f, 0f, 0f, 0f), OsmoStabilization.fromStored(listOf(0f, 0f, 0f, 1f)), 0.0001f)

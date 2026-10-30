@@ -26,21 +26,34 @@ internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap,
     private var lastTimestamp = Long.MIN_VALUE
     private var lastPresentation: Long? = null
     private var lastCorrection: FloatArray? = null
-    private var waitingForTimestamp: Long? = null
-    fun resetSurface() { lastTimestamp = Long.MIN_VALUE; lastPresentation = null; lastCorrection = null; waitingForTimestamp = null }
-    fun beginSeek() { waitingForTimestamp = lastTimestamp }
+    private var waiting = true
+    private var beforeSeek = Long.MIN_VALUE
+    private var unmatchedFrames = 0
+    private var lastUnmatched = Long.MIN_VALUE
+    fun resetSurface() {
+        lastTimestamp = Long.MIN_VALUE; lastPresentation = null; lastCorrection = null
+        waiting = true; beforeSeek = Long.MIN_VALUE; unmatchedFrames = 0; lastUnmatched = Long.MIN_VALUE
+    }
+    fun beginSeek() {
+        waiting = true; beforeSeek = lastTimestamp; unmatchedFrames = 0; lastUnmatched = Long.MIN_VALUE
+    }
     fun frame(timestamp: Long): MatchedCorrection {
-        val waiting = waitingForTimestamp == timestamp && !timestamps.contains(timestamp)
-        if (!waiting) {
-            val repeatedSeekTimestamp = waitingForTimestamp == timestamp && timestamps.contains(timestamp)
-            waitingForTimestamp = null
-            val presentation = if (repeatedSeekTimestamp) null else timestamps.lookup(timestamp)
-            if (timestamp != lastTimestamp || presentation != lastPresentation) {
-                lastCorrection = presentation?.let(stabilization::correctionAt)
-                lastTimestamp = timestamp; lastPresentation = presentation
+        if (waiting) {
+            if (!timestamps.contains(timestamp)) {
+                if (timestamp != 0L && timestamp != beforeSeek && timestamp != lastUnmatched) {
+                    unmatchedFrames++; lastUnmatched = timestamp
+                }
+                return MatchedCorrection(null, unmatchedFrames < 5)
             }
+            if (timestamp == beforeSeek || timestamps.lookup(timestamp) == null) return MatchedCorrection(null, false)
+            waiting = false
         }
-        return MatchedCorrection(lastCorrection, waiting)
+        val presentation = timestamps.lookup(timestamp)
+        if (timestamp != lastTimestamp || presentation != lastPresentation) {
+            lastCorrection = presentation?.let(stabilization::correctionAt)
+            lastTimestamp = timestamp; lastPresentation = presentation
+        }
+        return MatchedCorrection(lastCorrection, false)
     }
 }
 
