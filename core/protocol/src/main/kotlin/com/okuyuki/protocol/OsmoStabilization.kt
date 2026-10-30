@@ -1,4 +1,4 @@
-package com.okuyuki.android
+package com.okuyuki.protocol
 
 import kotlin.math.acos
 import kotlin.math.exp
@@ -6,7 +6,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /** Bounded exact mapping between MediaCodec release timestamps and media PTS. */
-internal class FrameTimestampMap(private val capacity: Int = 128) {
+class FrameTimestampMap(private val capacity: Int = 128) {
     private val timestamps = LinkedHashMap<Long, Long?>()
     init { require(capacity > 0) }
     @Synchronized fun record(releaseNs: Long, presentationUs: Long) {
@@ -19,10 +19,10 @@ internal class FrameTimestampMap(private val capacity: Int = 128) {
     @Synchronized fun clear() = timestamps.clear()
 }
 
-internal data class MatchedCorrection(val correction: FloatArray?, val waiting: Boolean)
+data class MatchedCorrection(val correction: FloatArray?, val waiting: Boolean)
 
 /** GL-thread state: redraws reuse a verified mapping, while seeks wait for a new frame. */
-internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap, private val stabilization: OsmoStabilization,
+class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap, private val stabilization: OsmoStabilization,
     private val nowNs: () -> Long = System::nanoTime) {
     private var lastTimestamp = Long.MIN_VALUE
     private var lastPresentation: Long? = null
@@ -62,12 +62,12 @@ internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap,
 }
 
 /** Causal rotational smoothing in the Osmo body frame; corrections are w,x,y,z. */
-internal class OsmoStabilization(track: OsmoMotionTrack) {
+class OsmoStabilization(track: OsmoMotionTrack) {
     private val frames = track.frames
     private val tolerance = track.frameIntervalUs / 2
     private val corrections: List<FloatArray>
     init {
-        require(frames.isNotEmpty() && track.frameIntervalUs > 0)
+        require(OsmoMotionCodec.isValid(track))
         var previousTime = frames.first().presentationTimeUs
         var target = fromStored(frames.first().storedAttitude)
         corrections = frames.map { frame ->

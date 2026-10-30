@@ -1,14 +1,12 @@
 package com.okuyuki.android
 
 import com.okuyuki.protocol.PanoramaVideoFormat
+import com.okuyuki.protocol.OsmoMotionFrame
+import com.okuyuki.protocol.OsmoMotionTrack
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import kotlin.math.sqrt
-
-/** A decoded camera attitude associated with a validated video presentation timestamp. */
-internal data class OsmoMotionFrame(val presentationTimeUs: Long, val storedAttitude: List<Float>)
-internal data class OsmoMotionTrack(val frames: List<OsmoMotionFrame>, val frameIntervalUs: Long)
 
 /** Strictly accepts the simple, aligned sample tables verified in Osmo 360 files. */
 internal object OsmoMotionReader {

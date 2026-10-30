@@ -1,6 +1,8 @@
 package com.okuyuki.android
 
 import com.okuyuki.protocol.PanoramaVideoFormat
+import com.okuyuki.protocol.OsmoMotionFrame
+import com.okuyuki.protocol.OsmoMotionTrack
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer

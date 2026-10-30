@@ -1,5 +1,7 @@
 package com.okuyuki.android
 
+import com.okuyuki.protocol.OsmoStabilization
+
 import android.net.Uri
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
