@@ -101,8 +101,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
             bottomBar = { PhoneNavigation(tab) { tab = it } }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 PhoneHeader(
-                    title = if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else stringResource(R.string.settings),
-                    status = if (host.clients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
+                    title = if (tab == 0) "Okuyuki" else if (tab == 1) stringResource(R.string.devices) else stringResource(R.string.settings),
+                    status = if (host.clients > 0 || host.tvClients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
                     onStatusClick = { tab = 1 },
                 )
                 host.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error) }
@@ -193,7 +193,8 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
                             Text(if (host.clients > 0) stringResource(R.string.quest_connected) else if (host.running) stringResource(R.string.quest_waiting) else stringResource(R.string.quest_off), style = MaterialTheme.typography.bodyMedium)
-                            if (!app.library.hasPermission()) FilledTonalButton(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
+                            if (host.tvClients > 0) Text(stringResource(R.string.tv_connected), style = MaterialTheme.typography.bodyMedium)
+                            if (!app.library.hasFullMediaPermission()) FilledTonalButton(onClick = requestPhotos) { Text(stringResource(R.string.grant_first)) }
                         }
                         if (sharedPanorama != null || sharedVideo != null) GlassPanel(Modifier.fillMaxWidth()) {
                             if (sharedPanorama != null) {

@@ -45,7 +45,7 @@ internal fun PhoneHeader(title: String, status: String, onStatusClick: () -> Uni
 
 @Composable
 internal fun PhoneNavigation(selected: Int, onSelect: (Int) -> Unit) {
-    val labels = listOf(stringResource(R.string.library), "Quest", stringResource(R.string.settings))
+    val labels = listOf(stringResource(R.string.library), stringResource(R.string.devices), stringResource(R.string.settings))
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp), contentAlignment = Alignment.Center) {
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, tonalElevation = 4.dp, shadowElevation = 8.dp) {
             Row(Modifier.selectableGroup().padding(5.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -50,6 +50,8 @@ class PhotoLibrary(private val context: Context, val dao: LibraryDao, private va
     fun hasImagePermission() = granted(Manifest.permission.READ_MEDIA_IMAGES) ||
         granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
+    fun hasFullMediaPermission() = granted(Manifest.permission.READ_MEDIA_IMAGES) && granted(Manifest.permission.READ_MEDIA_VIDEO)
+
     /** A cached index or conversion is never evidence that a selected item is still accessible. */
     suspend fun canRead(media: IndexedMedia): Boolean = withContext(Dispatchers.IO) {
         val fullPermission = granted(if (media.isVideo) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES)
