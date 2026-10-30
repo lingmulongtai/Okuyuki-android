@@ -22,7 +22,8 @@ internal class FrameTimestampMap(private val capacity: Int = 128) {
 internal data class MatchedCorrection(val correction: FloatArray?, val waiting: Boolean)
 
 /** GL-thread state: redraws reuse a verified mapping, while seeks wait for a new frame. */
-internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap, private val stabilization: OsmoStabilization) {
+internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap, private val stabilization: OsmoStabilization,
+    private val nowNs: () -> Long = System::nanoTime) {
     private var lastTimestamp = Long.MIN_VALUE
     private var lastPresentation: Long? = null
     private var lastCorrection: FloatArray? = null
@@ -30,12 +31,13 @@ internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap,
     private var beforeSeek = Long.MIN_VALUE
     private var unmatchedFrames = 0
     private var lastUnmatched = Long.MIN_VALUE
+    private var waitingSince: Long? = null
     fun resetSurface() {
         lastTimestamp = Long.MIN_VALUE; lastPresentation = null; lastCorrection = null
-        waiting = true; beforeSeek = Long.MIN_VALUE; unmatchedFrames = 0; lastUnmatched = Long.MIN_VALUE
+        waiting = true; beforeSeek = Long.MIN_VALUE; unmatchedFrames = 0; lastUnmatched = Long.MIN_VALUE; waitingSince = null
     }
     fun beginSeek() {
-        waiting = true; beforeSeek = lastTimestamp; unmatchedFrames = 0; lastUnmatched = Long.MIN_VALUE
+        waiting = true; beforeSeek = lastTimestamp; unmatchedFrames = 0; lastUnmatched = Long.MIN_VALUE; waitingSince = null
     }
     fun frame(timestamp: Long): MatchedCorrection {
         if (waiting) {
@@ -43,7 +45,9 @@ internal class FrameCorrectionMatcher(private val timestamps: FrameTimestampMap,
                 if (timestamp != 0L && timestamp != beforeSeek && timestamp != lastUnmatched) {
                     unmatchedFrames++; lastUnmatched = timestamp
                 }
-                return MatchedCorrection(null, unmatchedFrames < 5)
+                val now = nowNs()
+                val started = waitingSince ?: now.also { waitingSince = it }
+                return MatchedCorrection(null, unmatchedFrames < 5 && now - started < 2_000_000_000L)
             }
             if (timestamp == beforeSeek || timestamps.lookup(timestamp) == null) return MatchedCorrection(null, false)
             waiting = false

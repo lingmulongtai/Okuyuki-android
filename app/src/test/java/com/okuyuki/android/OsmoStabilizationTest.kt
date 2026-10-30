@@ -40,6 +40,15 @@ class OsmoStabilizationTest {
         matcher.resetSurface(); map.record(100, 0)
         assertNotNull(matcher.frame(100).correction)
     }
+    @Test fun `a repeated unsupported texture timestamp times out`() {
+        var now = 0L
+        val map = FrameTimestampMap()
+        val frame = OsmoMotionFrame(0, listOf(0f, 0f, 0f, 1f))
+        val matcher = FrameCorrectionMatcher(map, OsmoStabilization(OsmoMotionTrack(listOf(frame), 40000))) { now }
+        assertTrue(matcher.frame(0).waiting)
+        now = 2_000_000_000L
+        assertFalse(matcher.frame(0).waiting)
+    }
     @Test fun `stored camera axes and rotations are converted consistently`() {
         assertArrayEquals(floatArrayOf(1f, 0f, 0f, 0f), OsmoStabilization.fromStored(listOf(0f, 0f, 0f, 1f)), 0.0001f)
         assertArrayEquals(floatArrayOf(0f, -1f, 0f, 0f), OsmoStabilization.fromStored(listOf(0f, 1f, 0f, 0f)), 0.0001f)
