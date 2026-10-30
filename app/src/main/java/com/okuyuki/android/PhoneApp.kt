@@ -13,11 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -36,9 +34,6 @@ import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private val light = lightColorScheme(primary = Color(0xFF2747E6), background = Color(0xFFF4F5F8), surface = Color.White, onSurface = Color(0xFF141821))
-private val dark = darkColorScheme(primary = Color(0xFF8FA3FF), background = Color(0xFF0D0F15), surface = Color(0xFF161922), onSurface = Color(0xFFECEEF3))
 
 @Composable
 fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Boolean) -> Unit) {
@@ -99,18 +94,15 @@ fun PhoneApp(app: OkuyukiApplication, requestPhotos: () -> Unit, toggleHost: (Bo
             }
         }
     }
-    MaterialTheme(colorScheme = if (darkTheme) dark else light) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = { NavigationBar { listOf(stringResource(R.string.library), "Quest", stringResource(R.string.settings)).forEachIndexed { index, label ->
-                NavigationBarItem(selected = tab == index, onClick = { tab = index }, icon = { Text(listOf("▦", "◎", "⚙")[index], fontSize = 24.sp) }, label = { Text(label) })
-            } } }) { padding ->
+    OkuyukiTheme(dark = darkTheme) {
+        Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = { PhoneNavigation(tab) { tab = it } }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else stringResource(R.string.settings), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                    Text(if (host.clients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
-                        color = if (host.clients > 0) Color(0xFF12805A) else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clickable { tab = 1 })
-                }
+                PhoneHeader(
+                    title = if (tab == 0) "Okuyuki" else if (tab == 1) "Quest" else stringResource(R.string.settings),
+                    status = if (host.clients > 0) stringResource(R.string.connected) else if (host.running) stringResource(R.string.waiting) else stringResource(R.string.off),
+                    onStatusClick = { tab = 1 },
+                )
                 host.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error) }
                 pending.forEach { request ->
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
