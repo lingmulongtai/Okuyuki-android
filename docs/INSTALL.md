@@ -1,6 +1,6 @@
 # GalaxyとQuest 3Sへのインストール・接続
 
-`v0.1.0-alpha.12-preview` の手順です。GalaxyにAndroid版、Quest 3SにQuest版のAPKを入れます。
+Android `v0.1.0-alpha.13-preview` と Quest `v0.1.0-alpha.12-preview` の手順です。GalaxyにAndroid版、Quest 3SにQuest版のAPKを入れます。
 Quest版はPCからUSB経由でインストールします。導入後はGalaxyとQuestだけで使えます。
 
 ## 用意するもの
@@ -18,10 +18,10 @@ Quest版はPCからUSB経由でインストールします。導入後はGalaxy�
 
 | 入れる端末 | 保存する場所 | APK |
 | --- | --- | --- |
-| Galaxy | Galaxyのダウンロードフォルダ | [Okuyuki-android-v0.1.0-alpha.12-preview.apk](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.12-preview/Okuyuki-android-v0.1.0-alpha.12-preview.apk) |
+| Galaxy | Galaxyのダウンロードフォルダ | [Okuyuki-android-v0.1.0-alpha.13-preview.apk](https://github.com/lingmulongtai/Okuyuki-android/releases/download/v0.1.0-alpha.13-preview/Okuyuki-android-v0.1.0-alpha.13-preview.apk) |
 | Quest 3S | **PCのダウンロードフォルダ** | [Okuyuki-quest-v0.1.0-alpha.12-preview.apk](https://github.com/lingmulongtai/Okuyuki-quest/releases/download/v0.1.0-alpha.12-preview/Okuyuki-quest-v0.1.0-alpha.12-preview.apk) |
 
-[Androidのリリース](https://github.com/lingmulongtai/Okuyuki-android/releases/tag/v0.1.0-alpha.12-preview)・[Questのリリース](https://github.com/lingmulongtai/Okuyuki-quest/releases/tag/v0.1.0-alpha.12-preview)にはチェックサム、署名情報、検証記録もあります。
+[Androidのリリース](https://github.com/lingmulongtai/Okuyuki-android/releases/tag/v0.1.0-alpha.13-preview)・[Questのリリース](https://github.com/lingmulongtai/Okuyuki-quest/releases/tag/v0.1.0-alpha.12-preview)にはチェックサム、署名情報、検証記録もあります。
 GitHubの「Source code」のZIPではなく、上の `.apk` を保存してください。
 
 ## 2. GalaxyにAndroid版を入れる
@@ -87,7 +87,7 @@ Questのアプリライブラリーで「提供元不明（Unknown Sources）」
 
 1. **両端末を同じWi-Fiに接続**します。Galaxyのテザリングでは、Questをそのアクセスポイントにつなぎます。
 2. GalaxyでOkuyukiを開き、「ライブラリ」に試したい3D写真があることを確認します。
-3. Galaxyの「Quest」タブで **「Questとつなぐ」をオン** にします。通知権限を求められたら許可します。待機通知と手動接続用のアドレスが表示されます。
+3. Galaxyの「接続」タブで待機をオンにします。通知権限を求められたら許可します。待機通知と手動接続用のアドレスが表示されます。
 4. QuestでOkuyuki Questを開き、見つかったスマホを選びます。見つからなければ「アドレスを入力してつなぐ」にGalaxyの **IPアドレスとポートを両方** 入れて「つなぐ」を押します。例: `192.168.1.2:12345`。この例ではなくGalaxyの表示値を使ってください。
 5. 両画面に **同じ4桁の番号** が出たことを確認し、Galaxyで「許可」を押します。初回承認中はGalaxyのアプリ画面を開いておきます。
 6. Questの一覧から1枚を選び、「前へ」「次へ」で切り替えます。一覧を追加取得する場合は「続きを見る」を押します。
