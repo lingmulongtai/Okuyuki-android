@@ -7,11 +7,11 @@ import kotlin.math.sqrt
 
 /** Bounded exact mapping between MediaCodec release timestamps and media PTS. */
 internal class FrameTimestampMap(private val capacity: Int = 128) {
-    private val timestamps = LinkedHashMap<Long, Long>()
+    private val timestamps = LinkedHashMap<Long, Long?>()
     init { require(capacity > 0) }
     @Synchronized fun record(releaseNs: Long, presentationUs: Long) {
         if (releaseNs < 0 || presentationUs < 0) return
-        timestamps[releaseNs] = presentationUs
+        timestamps[releaseNs] = if (timestamps.containsKey(releaseNs)) null else presentationUs
         while (timestamps.size > capacity) timestamps.remove(timestamps.keys.first())
     }
     @Synchronized fun take(releaseNs: Long): Long? = timestamps.remove(releaseNs)
